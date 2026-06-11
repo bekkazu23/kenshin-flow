@@ -417,8 +417,6 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
     </select>
     <label>課題の内容</label>
     <textarea id="modalText" placeholder="例：問診票が日本語のみで外国人が記入できない"></textarea>
-    <label>対応案・メモ（任意）</label>
-    <input type="text" id="modalNote" placeholder="例：英語版フォームを作成する">
     <div class="modal-actions">
       <button class="btn-d" id="btnDelete" style="display:none" onclick="deleteIssueFromModal()">削除</button>
       <button class="btn-s" onclick="closeModal()">キャンセル</button>
@@ -1141,7 +1139,6 @@ function openNewFromBtn(btn) {
   document.getElementById('modalCtx').textContent   = `📍 ${btn.dataset.ctx}`;
   document.getElementById('modalCat').value  = 'lang';
   document.getElementById('modalText').value = '';
-  document.getElementById('modalNote').value = '';
   document.getElementById('btnDelete').style.display = 'none';
   document.getElementById('overlay').classList.add('open');
   setTimeout(() => document.getElementById('modalText').focus(), 50);
@@ -1155,7 +1152,6 @@ function openEditChip(el) {
   document.getElementById('modalCtx').textContent   = `📍 ${issue.timing} ／ ${issue.dept}`;
   document.getElementById('modalCat').value  = issue.cat;
   document.getElementById('modalText').value = issue.text;
-  document.getElementById('modalNote').value = issue.note || '';
   document.getElementById('btnDelete').style.display = 'inline-block';
   document.getElementById('overlay').classList.add('open');
 }
@@ -1164,16 +1160,15 @@ function saveIssue() {
   const text = document.getElementById('modalText').value.trim();
   if (!text) { document.getElementById('modalText').focus(); return; }
   const cat  = document.getElementById('modalCat').value;
-  const note = document.getElementById('modalNote').value.trim();
   if (editingId === null) {
     issues.push({
       id:nextId++, cell:editingCell, procIdx:editingProcIdx,
-      cat, text, note, policy:'', assignee:'', status:'open', memo:'',
+      cat, text, note:'', policy:'', assignee:'', status:'open', memo:'',
       timing:getTimingFromCell(editingCell), dept:getDeptFromCell(editingCell),
     });
   } else {
     const issue = issues.find(i => i.id === editingId);
-    if (issue) { issue.cat = cat; issue.text = text; issue.note = note; }
+    if (issue) { issue.cat = cat; issue.text = text; }
   }
   saveIssues(); closeModal(); rerender();
 }
