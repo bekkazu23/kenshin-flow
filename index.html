@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>外国人健診受入れ準備：各部門課題管理表</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Noto Sans JP', 'Hiragino Kaku Gothic ProN', sans-serif;
+  background: #fdf7f5; color: #3d2b35; min-height: 100vh; font-size: 16px;
+}
+
+/* ── HEADER ─────────────────────────────── */
+header {
+  background: linear-gradient(135deg, #8c3a52 0%, #b05a72 100%);
+  color: white; padding: 16px 28px;
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  box-shadow: 0 3px 10px rgba(140,58,82,0.28);
+}
+header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.03em; }
+header p  { font-size: 0.8rem; opacity: 0.82; margin-top: 3px; }
+.header-btns { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.hbtn {
+  padding: 7px 16px; border-radius: 20px;
+  border: 1.5px solid rgba(255,255,255,0.55); background: transparent; color: white;
+  font-size: 0.82rem; cursor: pointer; transition: all 0.18s;
+  white-space: nowrap; font-family: inherit; font-weight: 500;
+}
+.hbtn:hover { background: rgba(255,255,255,0.18); }
+.hbtn.active { background: white; color: #8c3a52; border-color: white; font-weight: 700; }
+
+/* ── TABS ───────────────────────────────── */
+.tab-bar { display: flex; background: #7d3349; padding: 0 28px; gap: 4px; }
+.tab-btn {
+  padding: 10px 22px; border: none; background: transparent;
+  color: rgba(255,255,255,0.55); font-size: 0.9rem; font-weight: 500;
+  cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.18s;
+  font-family: inherit; letter-spacing: 0.02em;
+}
+.tab-btn:hover { color: rgba(255,255,255,0.9); }
+.tab-btn.active { color: white; border-bottom-color: #f9b8c8; font-weight: 700; }
+
+/* ── PAGE ───────────────────────────────── */
+.page { padding: 20px 24px; }
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ── SWIMLANE WRAP (scroll) ─────────────── */
+.swimlane-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 230px);
+  border-radius: 12px;
+  border: 1px solid #f0dde3;
+  box-shadow: 0 2px 14px rgba(140,58,82,0.1);
+}
+.swimlane {
+  table-layout: fixed; width: 100%; min-width: 700px; border-collapse: collapse;
+}
+/* Sticky phase header */
+.phase-header th {
+  position: sticky; top: 0; z-index: 2;
+  padding: 12px 8px; font-size: 0.9rem; font-weight: 700;
+  text-align: center; border: 1px solid rgba(255,255,255,0.25);
+  color: white; letter-spacing: 0.03em; line-height: 1.5;
+}
+.col-lane-th {
+  position: sticky; left: 0; z-index: 4;
+  width: 90px; background: #5a3a44; color: white !important;
+}
+.ph-0 { background: #c97080; }
+.ph-1 { background: #c4906a; }
+.ph-2 { background: #8b7ab8; }
+.ph-3 { background: #6a9e7a; }
+.ph-4 { background: #5b9aaa; }
+
+.lane-row td { border: 1px solid #f2e0e5; vertical-align: top; padding: 0; }
+.lane-label {
+  position: sticky; left: 0; z-index: 1;
+  background: #5a3a44 !important; color: white !important; text-align: center;
+  font-size: 0.82rem; font-weight: 700; padding: 10px 5px;
+  width: 90px; min-width: 90px; line-height: 1.6; letter-spacing: 0.04em;
+}
+.lane-label .lane-icon { font-size: 1.15rem; display: block; margin-bottom: 4px; }
+
+/* ── LANE COLORS（セル・プロセスボックス・空きエリアを部門色で統一） ── */
+.lane-row[data-lc="0"] td,
+.lane-row[data-lc="0"] .cell { background: #fdf8f5; }
+.lane-row[data-lc="1"] td,
+.lane-row[data-lc="1"] .cell { background: #fdeef5; }
+.lane-row[data-lc="2"] td,
+.lane-row[data-lc="2"] .cell { background: #f0edfb; }
+.lane-row[data-lc="3"] td,
+.lane-row[data-lc="3"] .cell { background: #edf7ef; }
+.lane-row[data-lc="4"] td,
+.lane-row[data-lc="4"] .cell { background: #fef3e8; }
+.lane-row[data-lc="5"] td,
+.lane-row[data-lc="5"] .cell { background: #e8f4f8; }
+.lane-row[data-lc="6"] td,
+.lane-row[data-lc="6"] .cell { background: #fdf5e8; }
+
+.cell { min-height: 110px; padding: 10px; transition: background 0.14s; position: relative; }
+
+/* ── PROCESS BOX（背景なし＝セルの部門色がそのまま表示） ─────── */
+.process-box {
+  border-radius: 8px; padding: 8px 11px; font-size: 0.88rem;
+  line-height: 1.55; color: #3d2b35; font-weight: 500;
+  background: transparent;
+  border: none; border-left: 4px solid rgba(100,60,70,0.2);
+  position: relative; transition: padding-right 0.15s;
+}
+body.proc-mode .process-box { padding-right: 22px; }
+/* 部門別の背景色・左ボーダー（部門ラベルと統一） */
+.lane-row[data-lc="0"] .process-box { background: #fdf2ec; border-left-color: #d4937a; }
+.lane-row[data-lc="1"] .process-box { background: #fbe4f0; border-left-color: #c87098; }
+.lane-row[data-lc="2"] .process-box { background: #e8e4f8; border-left-color: #8870c8; }
+.lane-row[data-lc="3"] .process-box { background: #e4f4e6; border-left-color: #5a9e6a; }
+.lane-row[data-lc="4"] .process-box { background: #fceadb; border-left-color: #c88050; }
+.lane-row[data-lc="5"] .process-box { background: #daeef6; border-left-color: #4a8ead; }
+.lane-row[data-lc="6"] .process-box { background: #faeddb; border-left-color: #c8904a; }
+.proc-0,.proc-1,.proc-2,.proc-3,.proc-4 {}
+
+.proc-del-btn {
+  display: none; position: absolute; top: 4px; right: 5px;
+  background: none; border: none; color: #c97080; font-size: 0.72rem;
+  cursor: pointer; padding: 0; line-height: 1; font-family: inherit; font-weight: 700;
+}
+body.proc-mode .proc-del-btn { display: block; }
+body.proc-mode .proc-del-btn:hover { color: #8c3a52; }
+
+.proc-arrow { text-align: center; color: #c0909a; font-size: 0.84rem; margin: 3px 0; user-select: none; }
+
+/* ── EXAM CELL（横並びレイアウト） ──────────── */
+.exam-group { margin-bottom: 10px; }
+.exam-group-name {
+  font-size: 0.72rem; font-weight: 700; color: #5a3a44;
+  background: rgba(140,58,82,0.1); border-radius: 4px;
+  padding: 2px 7px; display: inline-block; margin-bottom: 5px;
+}
+.exam-steps {
+  display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px;
+}
+.exam-steps .process-box { display: inline-block; min-width: 80px; }
+.proc-arrow-h {
+  color: #c0909a; font-size: 1rem; align-self: center;
+  flex-shrink: 0; padding: 0 2px; user-select: none;
+}
+
+/* ── ISSUE CHIPS ────────────────────────── */
+.issue-chip {
+  display: flex; align-items: flex-start; gap: 5px; border-radius: 8px;
+  padding: 6px 9px; font-size: 0.82rem; color: #3d2b35; margin-top: 5px;
+  cursor: pointer; transition: filter 0.12s; line-height: 1.45; border: 1px solid transparent;
+}
+.issue-chip:hover { filter: brightness(0.95); }
+.chip-cat {
+  display: inline-block; font-size: 0.65rem; font-weight: 700;
+  border-radius: 4px; padding: 1px 5px; flex-shrink: 0; margin-top: 1px; color: white;
+}
+.cat-lang   { background: #fef9c3; border-color: #fde047; }
+.cat-lang   .chip-cat { background: #c4920c; }
+.cat-flow   { background: #fde8f0; border-color: #f4a8c8; }
+.cat-flow   .chip-cat { background: #c97080; }
+.cat-system { background: #f3e8ff; border-color: #d8b4fe; }
+.cat-system .chip-cat { background: #9060c8; }
+.issue-chip.status-done { opacity: 0.52; }
+.issue-chip.status-done .issue-text { text-decoration: line-through; text-decoration-color: #8c3a52; }
+body:not(.issue-mode) .issue-chip { pointer-events: none; }
+
+/* ── ADD BUTTONS ────────────────────────── */
+.add-proc-btn, .add-issue-btn {
+  width: 100%; padding: 5px 0; border-radius: 8px; background: none;
+  font-size: 0.75rem; cursor: pointer; transition: all 0.14s;
+  margin-top: 5px; display: none; font-family: inherit;
+}
+.add-proc-btn  { border: 1.5px dashed #e8c8d0; color: #c8a0a8; }
+.add-issue-btn { border: 1.5px dashed #f0c8d0; color: #d090a0; }
+body.proc-mode  .add-proc-btn  { display: block; }
+body.issue-mode .add-issue-btn { display: block; }
+body.proc-mode  .add-proc-btn:hover  { border-color:#c97080;color:#8c3a52;background:#fdf0f3; }
+body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;background:#fdf0f3; }
+
+/* ── LEGEND ─────────────────────────────── */
+.legend {
+  margin-top: 14px; background: white; border-radius: 12px; padding: 12px 20px;
+  display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  box-shadow: 0 1px 6px rgba(140,58,82,0.08); border: 1px solid #f0dde3;
+}
+.legend-lbl  { font-size: 0.78rem; font-weight: 700; color: #8c6070; }
+.legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.76rem; color: #5a4050; }
+.legend-dot  { width: 11px; height: 11px; border-radius: 3px; }
+
+/* ── MGMT TABLE ─────────────────────────── */
+.mgmt-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px; flex-wrap: wrap; gap: 10px;
+}
+.mgmt-header h2 { font-size: 1.05rem; font-weight: 700; color: #5a2a3a; }
+
+.table-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 235px);
+  border-radius: 12px;
+  border: 1px solid #f0dde3;
+  box-shadow: 0 2px 14px rgba(140,58,82,0.1);
+}
+.mgmt-table {
+  width: 100%; border-collapse: collapse; background: white;
+  min-width: 1200px; table-layout: fixed;
+}
+
+/* Column widths via colgroup */
+.mgmt-table .cw-no   { width: 46px;  }
+.mgmt-table .cw-tim  { width: 98px;  }
+.mgmt-table .cw-dep  { width: 92px;  }
+.mgmt-table .cw-cat  { width: 108px; }
+.mgmt-table .cw-det  { width: 280px; }  /* 課題詳細 wider */
+.mgmt-table .cw-pol  { width: 200px; }
+.mgmt-table .cw-asgn { width: 112px; }
+.mgmt-table .cw-st   { width: 108px; }
+.mgmt-table .cw-memo { width: 148px; }
+.mgmt-table .cw-ops  { width: 66px;  }
+
+/* Sticky header */
+.mgmt-table thead th {
+  position: sticky; top: 0; z-index: 4;
+  background: #f8eef0; color: #5a2a3a;
+  padding: 0; border-right: 1px solid #f0dde3; border-bottom: 2px solid #e8c0cc;
+  vertical-align: top;
+}
+/* Th inner layout (label + filter fused) */
+.th-inner {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 10px 10px 8px; min-height: 66px;
+}
+.th-title {
+  font-size: 0.9rem; font-weight: 700; white-space: nowrap;
+  color: #5a2a3a; letter-spacing: 0.02em;
+}
+.filter-sel, .filter-inp {
+  width: 100%; padding: 4px 7px;
+  border: 1.5px solid #f0d8dc; border-radius: 6px;
+  font-size: 0.78rem; font-family: inherit; background: white; color: #3d2b35;
+}
+.filter-sel:focus, .filter-inp:focus { outline: none; border-color: #c97080; }
+
+/* Frozen columns (No, タイミング, 部署, 課題) */
+.mgmt-table th.fc, .mgmt-table td.fc { position: sticky; z-index: 2; }
+.mgmt-table thead th.fc { z-index: 5; }
+.fc-0 { left: 0px;   }
+.fc-1 { left: 46px;  }
+.fc-2 { left: 144px; }
+.fc-3 { left: 236px; }
+/* Visual separator after frozen area */
+.mgmt-table th.fc-3, .mgmt-table td.fc-3 {
+  box-shadow: 4px 0 8px -2px rgba(140,58,82,0.18);
+}
+/* Frozen cell backgrounds (must be explicit for sticky to work over scrolled content) */
+.mgmt-table tbody td.fc       { background: white; }
+.mgmt-table tbody tr:nth-child(even) td.fc { background: #fef9f8; }
+.mgmt-table tbody tr:hover td.fc     { background: #fdf5f7 !important; }
+.mgmt-table tbody tr.status-done td.fc     { background: #f9f9f9 !important; }
+/* Non-frozen cells */
+.mgmt-table tbody td { padding: 9px 10px; font-size: 0.9rem; vertical-align: middle; border-right: 1px solid #f5eaec; }
+.mgmt-table tbody tr { border-bottom: 1px solid #f5e8ea; transition: background 0.1s; }
+.mgmt-table tbody tr:nth-child(even) td     { background: #fef9f8; }
+.mgmt-table tbody tr:hover         td       { background: #fdf5f7 !important; }
+.mgmt-table tbody tr.status-done   td       { background: #f9f9f9 !important; }
+
+.col-no  { text-align: center; color: #a07080; font-weight: 700; }
+.col-ops { text-align: center; }
+
+.cat-badge {
+  display: inline-block; font-size: 0.74rem; font-weight: 700;
+  border-radius: 5px; padding: 2px 8px; color: white; white-space: nowrap;
+}
+.badge-lang   { background: #c4920c; }
+.badge-flow   { background: #c97080; }
+.badge-system { background: #9060c8; }
+
+.mgmt-sel, .mgmt-inp {
+  width: 100%; border: 1.5px solid #f0dde3; border-radius: 7px;
+  padding: 5px 8px; font-size: 0.86rem; font-family: inherit; color: #3d2b35; background: #fdf7f9;
+}
+.mgmt-sel:focus, .mgmt-inp:focus { outline: none; border-color: #c97080; }
+.mgmt-edit-btn, .mgmt-del-btn { background:none; border:none; cursor:pointer; font-size:0.92rem; padding:2px 3px; }
+.mgmt-del-btn:hover { opacity: 0.7; }
+
+/* ── MODAL ──────────────────────────────── */
+.overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(61,43,53,0.48); z-index: 200;
+  align-items: center; justify-content: center;
+}
+.overlay.open { display: flex; }
+
+/* ── LOADING ────────────────────────────── */
+#loading-overlay {
+  display: flex; position: fixed; inset: 0;
+  background: rgba(253,247,245,0.92); z-index: 999;
+  flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; font-size: 1rem; color: #8c3a52; font-weight: 600;
+}
+#loading-overlay.hidden { display: none; }
+.spinner {
+  width: 38px; height: 38px; border-radius: 50%;
+  border: 4px solid #f0dde3; border-top-color: #b05a72;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+#api-error {
+  display: none; background: #fde8ec; color: #8c2a3a;
+  border: 1px solid #f0b0b8; border-radius: 10px;
+  padding: 12px 20px; margin: 16px 24px; font-size: 0.9rem; text-align: center;
+}
+#api-error.show { display: block; }
+.modal {
+  background: white; border-radius: 18px; padding: 28px;
+  width: 460px; max-width: 92vw; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 14px 44px rgba(140,58,82,0.22); border: 1px solid #f0dde3;
+}
+.modal h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 4px; color: #5a2a3a; }
+.modal .ctx { font-size: 0.78rem; color: #8c6070; margin-bottom: 16px; }
+.modal label { font-size: 0.82rem; color: #6a4a5a; display: block; margin-bottom: 5px; margin-top: 13px; font-weight: 600; }
+.modal select, .modal textarea, .modal input[type=text] {
+  width: 100%; padding: 9px 12px; border: 1.5px solid #f0dde3; border-radius: 10px;
+  font-size: 0.88rem; font-family: inherit; color: #3d2b35; background: #fdf7f9;
+}
+.modal select:focus, .modal textarea:focus, .modal input:focus {
+  outline: none; border-color: #c97080; box-shadow: 0 0 0 3px rgba(201,112,128,0.12);
+}
+.modal textarea { resize: vertical; min-height: 68px; }
+.modal-actions { display: flex; gap: 8px; margin-top: 22px; justify-content: flex-end; }
+.btn-p {
+  background: linear-gradient(135deg, #8c3a52, #b05a72); color: white; border: none;
+  padding: 9px 24px; border-radius: 10px; cursor: pointer; font-size: 0.88rem;
+  font-weight: 700; font-family: inherit; transition: opacity 0.15s;
+}
+.btn-p:hover { opacity: 0.88; }
+.btn-s {
+  background: white; color: #6a4a5a; border: 1.5px solid #f0dde3;
+  padding: 9px 16px; border-radius: 10px; cursor: pointer; font-size: 0.88rem; font-family: inherit;
+}
+.btn-s:hover { background: #fdf0f3; }
+.btn-d {
+  background: #fdecea; color: #c97080; border: none;
+  padding: 9px 14px; border-radius: 10px; cursor: pointer; font-size: 0.88rem; font-family: inherit;
+}
+.btn-d:hover { background: #f8d0d5; }
+
+/* ── CONFIRM POPUP ──────────────────────── */
+.confirm-modal { max-width: 340px; text-align: center; padding: 32px 28px; }
+.confirm-icon  { font-size: 2.4rem; margin-bottom: 10px; }
+.confirm-modal h3 { font-size: 1.05rem; }
+.confirm-modal p  { font-size: 0.9rem; color: #6a4a5a; margin-top: 8px; line-height: 1.6; }
+.confirm-modal .modal-actions { justify-content: center; }
+</style>
+</head>
+<body>
+
+<!-- ローディング画面 -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div>データを読み込み中...</div>
+</div>
+
+<!-- API接続エラーバナー -->
+<div id="api-error">
+  ⚠️ サーバーへの接続に失敗しました。ローカルデータを使用しています。<br>
+  <small>API_URL が未設定か、ネットワークを確認してください。</small>
+</div>
+
+<header>
+  <div>
+    <h1>🌸 外国人健診受入れ準備：各部門課題管理表</h1>
+  </div>
+  <div class="header-btns">
+    <button class="hbtn" id="toggleProcMode" onclick="toggleProcMode()">📝 業務を編集する</button>
+    <button class="hbtn" id="toggleMode"     onclick="toggleMode()">✏️ 課題を編集する</button>
+  </div>
+</header>
+
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab(0)">📊 課題管理表</button>
+  <button class="tab-btn"        onclick="switchTab(1)">📋 健診前</button>
+  <button class="tab-btn"        onclick="switchTab(2)">🏥 健診当日</button>
+  <button class="tab-btn"        onclick="switchTab(3)">📄 健診後</button>
+</div>
+
+<div class="page">
+  <div class="tab-panel active" id="tab-mgmt"></div>
+  <div class="tab-panel"        id="tab-0"></div>
+  <div class="tab-panel"        id="tab-1"></div>
+  <div class="tab-panel"        id="tab-2"></div>
+
+  <div class="legend" id="legend-bar" style="display:none">
+    <span class="legend-lbl">課題カテゴリ：</span>
+    <div class="legend-item"><div class="legend-dot" style="background:#c4920c"></div>言語</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#c97080"></div>業務フロー</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#9060c8"></div>システム</div>
+  </div>
+</div>
+
+<!-- スイムレーン課題モーダル -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h3 id="modalTitle">課題を追加</h3>
+    <div class="ctx" id="modalCtx"></div>
+    <label>カテゴリ</label>
+    <select id="modalCat">
+      <option value="lang">🌐 言語</option>
+      <option value="flow">🔄 業務フロー</option>
+      <option value="system">💻 システム</option>
+    </select>
+    <label>課題の内容</label>
+    <textarea id="modalText" placeholder="例：問診票が日本語のみで外国人が記入できない"></textarea>
+    <label>対応案・メモ（任意）</label>
+    <input type="text" id="modalNote" placeholder="例：英語版フォームを作成する">
+    <div class="modal-actions">
+      <button class="btn-d" id="btnDelete" style="display:none" onclick="deleteIssueFromModal()">削除</button>
+      <button class="btn-s" onclick="closeModal()">キャンセル</button>
+      <button class="btn-p" onclick="saveIssue()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 業務追加モーダル（通常） -->
+<div class="overlay" id="proc-overlay">
+  <div class="modal">
+    <h3>業務を追加</h3>
+    <div class="ctx" id="procModalCtx"></div>
+    <label>業務内容</label>
+    <input type="text" id="procModalText" placeholder="例：受診者に番号札を渡す">
+    <div class="modal-actions">
+      <button class="btn-s" onclick="closeProcModal()">キャンセル</button>
+      <button class="btn-p" onclick="saveProc()">追加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 業務追加モーダル（検査手順入力） -->
+<div class="overlay" id="exam-proc-overlay">
+  <div class="modal">
+    <h3>検査手順を追加</h3>
+    <div class="ctx" id="examProcCtx"></div>
+    <label>検査名</label>
+    <input type="text" id="examProcName" placeholder="例：採血、X線撮影、心電図">
+    <label>手順（省略可）</label>
+    <input type="text" id="examProcStep" placeholder="例：準備、実施、後処理">
+    <div class="modal-actions">
+      <button class="btn-s" onclick="closeExamProcModal()">キャンセル</button>
+      <button class="btn-p" onclick="saveExamProc()">追加</button>
+    </div>
+  </div>
+</div>
+
+<!-- 課題管理表モーダル -->
+<div class="overlay" id="mgmt-overlay">
+  <div class="modal">
+    <h3 id="mgmtTitle">課題を追加</h3>
+    <label>タイミング</label>
+    <select id="mgmtTiming">
+      <option>健診前</option><option>健診当日</option><option>健診後</option>
+    </select>
+    <label>部署</label>
+    <select id="mgmtDept">
+      <option>受診者</option><option>予約</option><option>受付</option>
+      <option>看護科</option><option>検査科</option><option>放射線科</option>
+      <option>医師</option><option>結果</option><option>請求</option>
+    </select>
+    <label>課題カテゴリ</label>
+    <select id="mgmtCat">
+      <option value="lang">🌐 言語</option>
+      <option value="flow">🔄 業務フロー</option>
+      <option value="system">💻 システム</option>
+    </select>
+    <label>課題詳細</label>
+    <textarea id="mgmtText" placeholder="課題の内容を入力してください"></textarea>
+    <label>対応方針</label>
+    <textarea id="mgmtPolicy" placeholder="対応方針・対処案を入力してください" style="min-height:54px"></textarea>
+    <label>対応責任者</label>
+    <input type="text" id="mgmtAssignee" placeholder="例：山田　花子">
+    <label>進捗</label>
+    <select id="mgmtStatus">
+      <option value="open">未着手</option>
+      <option value="progress">進行中</option>
+      <option value="done">完了</option>
+    </select>
+    <label>備考</label>
+    <input type="text" id="mgmtMemo" placeholder="メモを入力...">
+    <div class="modal-actions">
+      <button class="btn-d" id="mgmtBtnDel" style="display:none" onclick="deleteMgmtFromModal()">削除</button>
+      <button class="btn-s" onclick="closeMgmtModal()">キャンセル</button>
+      <button class="btn-p" onclick="saveMgmtIssue()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- カスタム確認ダイアログ -->
+<div class="overlay" id="confirm-overlay">
+  <div class="modal confirm-modal">
+    <div class="confirm-icon">🗑️</div>
+    <h3>削除の確認</h3>
+    <p id="confirmMsg"></p>
+    <div class="modal-actions">
+      <button class="btn-s" onclick="confirmNo()">キャンセル</button>
+      <button class="btn-d" onclick="confirmYes()">削除する</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONSTANTS
+// ============================================================
+const TIMING_LIST  = ['健診前', '健診当日', '健診後'];
+const DEPT_LIST    = ['受診者','予約','受付','看護科','検査科','放射線科','医師','結果','請求'];
+const LANE_TO_DEPT = {
+  patient:'受診者', yoyaku:'予約', iji:'受付', kango:'看護科',
+  kensa:'検査科', housha:'放射線科', ishi:'医師', kekka:'結果', seikyuu:'請求'
+};
+const CATS = {
+  lang:   { label:'言語',     badgeClass:'badge-lang'   },
+  flow:   { label:'業務フロー', badgeClass:'badge-flow'   },
+  system: { label:'システム',  badgeClass:'badge-system' },
+};
+
+function getDeptFromCell(cell) {
+  if (!cell) return '';
+  return LANE_TO_DEPT[cell.split('-')[1]] || '';
+}
+function getTimingFromCell(cell) {
+  if (!cell) return '';
+  return TIMING_LIST[parseInt(cell.split('-')[0])] || '';
+}
+
+// ── TAB ROUTING ─────────────────────────────────────────────
+// Button index → panel element ID
+const TAB_PANEL_ID = ['tab-mgmt', 'tab-0', 'tab-1', 'tab-2'];
+
+// ── SCHEMA ──────────────────────────────────────────────────
+const TABS = [
+  {
+    id: 0,
+    lanes: [
+      { id:'patient', icon:'🧑', label:'受診者' },
+      { id:'yoyaku',  icon:'📞', label:'予約'   },
+    ],
+    phases: [
+      { id:'inquiry',  label:'問い合わせ・\n予約申込', cls:0, span:1 },
+      { id:'confirm',  label:'予約確認・\n案内送付',   cls:1, span:1 },
+      { id:'precheck', label:'事前問診票\n記入・提出', cls:2, span:1 },
+      { id:'reminder', label:'前日リマインド\n・準備',  cls:3, span:1 },
+    ],
+    processes: {
+      'patient-inquiry':  ['受診コース・日程を問い合わせ','予約フォームまたは電話で申込'],
+      'patient-confirm':  ['予約確認メールを受け取る','案内資料を確認する'],
+      'patient-precheck': ['事前問診票に記入・提出','必要書類（保険証等）を準備'],
+      'patient-reminder': ['前日案内メール・電話を受け取る','当日の持ち物・流れを確認'],
+      'yoyaku-inquiry':   ['電話・Web予約の受付対応','空き状況の確認・調整','受診者情報を登録'],
+      'yoyaku-confirm':   ['予約確認メール・書類を送付','受診コース・オプションを案内'],
+      'yoyaku-precheck':  ['事前問診票の回収・確認','不備があれば連絡'],
+      'yoyaku-reminder':  ['前日に予約リマインドを送付','来院準備事項を案内'],
+    }
+  },
+  {
+    id: 1,
+    lanes: [
+      { id:'patient', icon:'🧑',  label:'受診者' },
+      { id:'iji',     icon:'🗂️',  label:'医事課' },
+      { id:'kango',   icon:'👩‍⚕️', label:'看護科' },
+      { id:'kensa',   icon:'🔬',  label:'検査科' },
+      { id:'housha',  icon:'☢️',  label:'放射線科' },
+      { id:'ishi',    icon:'👨‍⚕️', label:'医師'   },
+    ],
+    phases: [
+      { id:'checkin',  label:'当日受付', cls:0, span:1 },
+      { id:'exam',     label:'各種検査', cls:1, span:3, noArrow:true },
+      { id:'checkout', label:'会計',     cls:2, span:1 },
+    ],
+    processes: {
+      'patient-checkin':  ['来院・受付票に記入','本人確認書類を提示','番号札・受診票を受け取る'],
+      'patient-exam':     ['各検査室へ案内に従い移動','血液・尿・画像等の検査を受ける'],
+      'patient-checkout': ['会計窓口で費用を支払い','領収書・次回案内を受け取る'],
+      'iji-checkin':  ['受付対応・書類確認','本人確認・受診票発行','検査オーダー確認'],
+      'iji-exam':     ['検査進捗の確認・調整'],
+      'iji-checkout': ['会計処理・費用計算','領収書・明細書の発行'],
+      'kango-checkin':  ['受診者の誘導・案内'],
+      'kango-exam':     ['採血::準備','採血::実施','採血::後処理','尿検査::採取案内','検査間誘導::受診者誘導'],
+      'kango-checkout': [],
+      'kensa-checkin':  [],
+      'kensa-exam':     ['血液生化学::検体受取','血液生化学::分析実施','血液生化学::結果入力','心電図::装着準備','心電図::測定','超音波::準備','超音波::実施','検査データ管理::入力・管理'],
+      'kensa-checkout': [],
+      'housha-checkin':  [],
+      'housha-exam':     ['X線::撮影準備','X線::撮影','CT::準備','CT::撮影','画像管理::データ管理・送信'],
+      'housha-checkout': [],
+      'ishi-checkin':   [],
+      'ishi-exam':      ['問診::問診・身体診察','検査結果確認::結果の確認','総合評価::所見記載'],
+      'ishi-checkout':  [],
+    }
+  },
+  {
+    id: 2,
+    lanes: [
+      { id:'patient', icon:'🧑',  label:'受診者' },
+      { id:'ishi',    icon:'👨‍⚕️', label:'医師'   },
+      { id:'kekka',   icon:'📊',  label:'結果'   },
+      { id:'seikyuu', icon:'💴',  label:'請求'   },
+    ],
+    phases: [
+      { id:'result',   label:'結果集計・確認',   cls:0, span:1 },
+      { id:'report',   label:'報告書作成',       cls:1, span:1 },
+      { id:'billing',  label:'請求書作成',       cls:2, span:1 },
+      { id:'delivery', label:'報告書・請求書送付', cls:3, span:1 },
+    ],
+    processes: {
+      'patient-result':   [],
+      'patient-report':   [],
+      'patient-billing':  [],
+      'patient-delivery': ['報告書・請求書を受領','結果を確認','必要に応じて医療機関を受診'],
+      'ishi-result':   ['全検査結果の確認','総合所見・判定の記載'],
+      'ishi-report':   ['報告書の作成・承認','要精密検査の判定'],
+      'ishi-billing':  [],
+      'ishi-delivery': [],
+      'kekka-result':   ['各検査データの集計・照合','異常値のフラグ確認'],
+      'kekka-report':   ['報告書用データの提供','画像・グラフの整理'],
+      'kekka-billing':  [],
+      'kekka-delivery': [],
+      'seikyuu-result':   [],
+      'seikyuu-report':   [],
+      'seikyuu-billing':  ['受診内容に基づき請求書作成','保険・自費区分の確認','明細書の作成'],
+      'seikyuu-delivery': ['報告書・請求書の封入','郵送 or 電子送付','送付記録の管理'],
+    }
+  }
+];
+
+// ── SAMPLE ISSUES ────────────────────────────────────────────
+const SAMPLE_ISSUES = [
+  { id: 1, cell:'0-patient-inquiry',  procIdx:null, cat:'lang',   text:'WebサイトやLPが日本語のみで外国人が内容を理解できない',         policy:'英語・中国語版LPの作成を検討',        assignee:'' },
+  { id: 2, cell:'0-patient-inquiry',  procIdx:null, cat:'flow',   text:'海外発行の保険証・クレジットカードが使えるか不明',              policy:'受付可能な支払い方法をFAQに明記する',  assignee:'' },
+  { id: 3, cell:'0-yoyaku-inquiry',   procIdx:null, cat:'lang',   text:'電話問い合わせで英語対応できるスタッフがいない',                policy:'多言語対応コールセンターの外部委託を検討', assignee:'' },
+  { id: 4, cell:'0-patient-precheck', procIdx:null, cat:'lang',   text:'事前問診票が日本語のみで外国人受診者が正確に記入できない',      policy:'英語版・やさしい日本語版問診票の作成',  assignee:'' },
+  { id: 5, cell:'0-yoyaku-precheck',  procIdx:null, cat:'system', text:'外国人氏名（ローマ字）や海外住所がシステムに登録できない',      policy:'システム側の文字種制限を確認・改修',    assignee:'' },
+  { id: 6, cell:'0-yoyaku-reminder',  procIdx:null, cat:'lang',   text:'前日リマインドメールが日本語のみで内容が伝わらない',           policy:'多言語テンプレートを準備する',          assignee:'' },
+  { id: 7, cell:'1-patient-checkin',  procIdx:null, cat:'lang',   text:'受付票・番号呼び出し案内が日本語のみ',                        policy:'番号表示モニターに英語表記を追加する',  assignee:'' },
+  { id: 8, cell:'1-iji-checkin',      procIdx:null, cat:'flow',   text:'本人確認書類（パスポート等）の受付フローが未整備',             policy:'外国人向け受付チェックリストを作成する', assignee:'' },
+  { id: 9, cell:'1-kango-exam',       procIdx:null, cat:'lang',   text:'採血前の説明が日本語のみで不安を与えることがある',             policy:'多言語説明カードを各検査室に設置する',  assignee:'' },
+  { id:10, cell:'1-patient-exam',     procIdx:null, cat:'lang',   text:'院内の検査室案内サインが日本語のみで迷子になりやすい',         policy:'英語・ピクトグラム併記の案内サインを設置する', assignee:'' },
+  { id:11, cell:'1-kensa-exam',       procIdx:null, cat:'flow',   text:'検査前注意事項（絶食・排尿等）が口頭のみで伝わらない',        policy:'多言語版注意事項カードを設置する',     assignee:'' },
+  { id:12, cell:'1-iji-checkout',     procIdx:null, cat:'lang',   text:'費用の説明が日本語のみで内訳が理解されにくい',                policy:'英語対応の費用明細フォーマットを作成する', assignee:'' },
+  { id:13, cell:'2-ishi-report',      procIdx:null, cat:'lang',   text:'報告書が日本語のみで外国人本人や海外企業が読めない',          policy:'英語版サマリーレポートの作成フローを整備する', assignee:'' },
+  { id:14, cell:'2-kekka-report',     procIdx:null, cat:'lang',   text:'基準値の説明が日本語のみで自己判断が難しい',                  policy:'多言語説明シートを添付する',            assignee:'' },
+  { id:15, cell:'2-seikyuu-billing',  procIdx:null, cat:'system', text:'海外送金・外貨決済・クレジット払いに未対応',                  policy:'国際決済手段の導入を検討する',          assignee:'' },
+  { id:16, cell:'2-seikyuu-delivery', procIdx:null, cat:'flow',   text:'海外への報告書・請求書の郵送・電子送付手順が未整備',          policy:'国際郵送規定と電子送付フローをマニュアル化する', assignee:'' },
+].map(i => ({
+  ...i, note:'', status:'open', memo:'',
+  timing: getTimingFromCell(i.cell),
+  dept:   getDeptFromCell(i.cell),
+}));
+
+// ── STORAGE ──────────────────────────────────────────────────
+function migrateIssues(arr) {
+  const catMap = { booking:'flow', onsite:'flow', billing:'system' };
+  return arr.map(i => ({
+    ...i,
+    cat:      catMap[i.cat] || i.cat,
+    status:   i.status   || 'open',
+    memo:     i.memo     || '',
+    policy:   i.policy   || '',
+    assignee: i.assignee || '',
+    timing:   i.timing   || getTimingFromCell(i.cell),
+    dept:     i.dept     || getDeptFromCell(i.cell),
+    procIdx:  i.procIdx  !== undefined ? i.procIdx : null,
+  }));
+}
+// ── API 設定 ─────────────────────────────────────────────────
+// Apps Script デプロイ後、下記の '' 内に URL を貼り付けてください
+const API_URL = 'https://script.google.com/macros/s/AKfycbynAffDP85DTuyqqB6aTxx6ij-WEip-NwxH0th2tpjj_EIkOCEurxOuuc9DkIiO-Ex7/exec';
+
+let issues      = [];
+let nextId      = 1;
+let customProcs = {};
+
+// ローカルキャッシュ（オフライン時フォールバック）
+function _cacheIssues()  { localStorage.setItem('kenshin_v3_issues', JSON.stringify(issues)); }
+function _cacheProcs()   { localStorage.setItem('kenshin_v3_procs',  JSON.stringify(customProcs)); }
+function _loadCache() {
+  const s = localStorage.getItem('kenshin_v3_issues');
+  issues      = s ? migrateIssues(JSON.parse(s)) : JSON.parse(JSON.stringify(SAMPLE_ISSUES));
+  customProcs = JSON.parse(localStorage.getItem('kenshin_v3_procs') || '{}');
+  nextId      = issues.length ? Math.max(...issues.map(i => i.id)) + 1 : 1;
+}
+
+// API 経由の保存（Content-Type: text/plain でプリフライト回避）
+async function _apiPost(type, data) {
+  if (!API_URL) return;
+  try {
+    await fetch(API_URL, {
+      method:  'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body:    JSON.stringify({ type, data })
+    });
+  } catch (e) { /* サイレント失敗 — ローカルキャッシュが保持 */ }
+}
+
+function saveIssues()      { _cacheIssues(); _apiPost('issues', issues); }
+function saveCustomProcs() { _cacheProcs();  _apiPost('procs',  customProcs); }
+
+// 起動時データ読み込み
+async function initData() {
+  if (!API_URL) {
+    _loadCache();
+    document.getElementById('api-error').classList.add('show');
+    document.getElementById('loading-overlay').classList.add('hidden');
+    return;
+  }
+  try {
+    const res  = await fetch(API_URL);
+    const data = await res.json();
+    issues      = migrateIssues(data.issues      || []);
+    customProcs = data.customProcs || {};
+    // サーバーにデータがなければサンプルを使用
+    if (issues.length === 0) issues = JSON.parse(JSON.stringify(SAMPLE_ISSUES));
+    nextId = issues.length ? Math.max(...issues.map(i => i.id)) + 1 : 1;
+    _cacheIssues(); _cacheProcs(); // ローカルにも同期
+  } catch (e) {
+    _loadCache(); // API失敗 → ローカルキャッシュにフォールバック
+    document.getElementById('api-error').classList.add('show');
+  }
+  document.getElementById('loading-overlay').classList.add('hidden');
+}
+
+function getProcs(tabId, laneId, phaseId) {
+  const key = `${tabId}-${laneId}-${phaseId}`;
+  if (key in customProcs) return customProcs[key];
+  const tab = TABS.find(t => t.id === tabId);
+  return tab ? (tab.processes[`${laneId}-${phaseId}`] || []) : [];
+}
+
+// ── FILTERS ──────────────────────────────────────────────────
+let filters = { timing:'', dept:'', cat:'', detail:'', policy:'', assignee:'', status:'' };
+
+function setFilter(key, value) { filters[key] = value; applyFilters(); }
+
+function applyFilters() {
+  document.querySelectorAll('.mgmt-table tbody tr').forEach(row => {
+    const issue = issues.find(i => i.id === parseInt(row.dataset.iid));
+    if (!issue) { row.style.display = ''; return; }
+    const timing = issue.timing || getTimingFromCell(issue.cell);
+    const dept   = issue.dept   || getDeptFromCell(issue.cell);
+    let show = true;
+    if (filters.timing   && timing       !== filters.timing)               show = false;
+    if (filters.dept     && dept         !== filters.dept)                 show = false;
+    if (filters.cat      && issue.cat    !== filters.cat)                  show = false;
+    if (filters.status   && issue.status !== filters.status)               show = false;
+    if (filters.detail   && !issue.text.includes(filters.detail))          show = false;
+    if (filters.policy   && !(issue.policy  ||'').includes(filters.policy)) show = false;
+    if (filters.assignee && !(issue.assignee||'').includes(filters.assignee)) show = false;
+    row.style.display = show ? '' : 'none';
+  });
+}
+
+function restoreFilters() {
+  const map = { timing:'ft-tim', dept:'ft-dep', cat:'ft-cat',
+    detail:'ft-det', policy:'ft-pol', assignee:'ft-asgn', status:'ft-st' };
+  Object.entries(map).forEach(([k, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = filters[k] || '';
+  });
+}
+
+// ── CONFIRM DIALOG ────────────────────────────────────────────
+let _confirmCb = null;
+function showConfirm(msg, onYes) {
+  document.getElementById('confirmMsg').textContent = msg;
+  _confirmCb = onYes;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+function confirmYes() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  if (_confirmCb) _confirmCb(); _confirmCb = null;
+}
+function confirmNo() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  _confirmCb = null;
+}
+
+// ============================================================
+// RENDER SWIMLANE
+// ============================================================
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderChip(issue) {
+  const cat = CATS[issue.cat] || CATS.lang;
+  const doneCls = issue.status === 'done' ? ' status-done' : '';
+  return `<div class="issue-chip cat-${issue.cat}${doneCls}" data-iid="${issue.id}" onclick="openEditChip(this)">
+    <span class="chip-cat">${cat.label}</span>
+    <span class="issue-text">${escHtml(issue.text)}</span>
+  </div>`;
+}
+
+// 検査セル判定（kango/kensa/housha/ishi の exam フェーズ）
+const EXAM_LANES = new Set(['kango', 'kensa', 'housha', 'ishi']);
+function isExamCell(tabId, laneId, phaseId) {
+  return tabId === 1 && EXAM_LANES.has(laneId) && phaseId === 'exam';
+}
+
+// "検査名::手順" 形式のパース
+function parseExamProc(text) {
+  const sep = text.indexOf('::');
+  if (sep === -1) return [text, ''];
+  return [text.slice(0, sep), text.slice(sep + 2)];
+}
+
+// 検査セル用 横並びレンダリング
+function renderExamProcs(procs, cellIssues, key, ctxSafe, pi) {
+  let html = '';
+  // 検査名ごとにグループ化（順序保持）
+  const groupOrder = [];
+  const groups = new Map();
+  procs.forEach((p, idx) => {
+    const [name, step] = parseExamProc(p);
+    if (!groups.has(name)) { groups.set(name, []); groupOrder.push(name); }
+    groups.get(name).push({ step, idx });
+  });
+
+  groupOrder.forEach(name => {
+    const steps = groups.get(name);
+    html += `<div class="exam-group">`;
+    if (name) html += `<div class="exam-group-name">${escHtml(name)}</div>`;
+    html += `<div class="exam-steps">`;
+    steps.forEach(({ step, idx }, si) => {
+      if (si > 0) html += `<span class="proc-arrow-h">→</span>`;
+      const label = step || name;
+      html += `<div class="process-box proc-${pi}">
+        ${escHtml(label)}
+        <button class="proc-del-btn" data-cell="${key}" data-idx="${idx}" data-text="${escHtml(procs[idx])}" onclick="deleteProcFromBtn(this)">✕</button>
+      </div>`;
+      cellIssues.filter(i => i.procIdx === idx).forEach(issue => { html += renderChip(issue); });
+      html += `<button class="add-issue-btn" data-cell="${key}" data-ctx="${ctxSafe}" data-pidx="${idx}" onclick="openNewFromBtn(this)">＋ 課題を追加</button>`;
+    });
+    html += `</div></div>`;
+  });
+  cellIssues.filter(i => i.procIdx === null || i.procIdx === undefined)
+    .forEach(issue => { html += renderChip(issue); });
+  return html;
+}
+
+function renderTab(tabIdx) {
+  const tab       = TABS[tabIdx];
+  const container = document.getElementById(`tab-${tabIdx}`);
+  const totalSlots = tab.phases.reduce((s, ph) => s + (ph.span||1), 0);
+  const slotW      = `calc((100% - 90px) / ${totalSlots})`;
+
+  let html = `<div class="swimlane-wrap"><table class="swimlane"><colgroup><col style="width:90px">`;
+  tab.phases.forEach(ph => {
+    for (let s = 0; s < (ph.span||1); s++) html += `<col style="width:${slotW}">`;
+  });
+  html += `</colgroup><thead><tr class="phase-header"><th class="col-lane-th"></th>`;
+  tab.phases.forEach((ph, pi) => {
+    html += `<th class="ph-${pi}" colspan="${ph.span||1}">${ph.label.replace(/\n/g,'<br>')}</th>`;
+  });
+  html += `</tr></thead><tbody>`;
+
+  tab.lanes.forEach((lane, laneIdx) => {
+    html += `<tr class="lane-row" data-lc="${laneIdx}">
+      <td class="lane-label"><span class="lane-icon">${lane.icon}</span>${lane.label.replace(/\n/g,'<br>')}</td>`;
+    tab.phases.forEach((ph, pi) => {
+      const key        = `${tab.id}-${lane.id}-${ph.id}`;
+      const procs      = getProcs(tab.id, lane.id, ph.id);
+      const cellIssues = issues.filter(i => i.cell === key);
+      const showArrow  = !ph.noArrow;
+      const ctxSafe    = escHtml(`${lane.label.replace(/\n/,'')} ／ ${ph.label.replace(/\n/,'')}`);
+      const examCell   = isExamCell(tab.id, lane.id, ph.id);
+
+      html += `<td colspan="${ph.span||1}"><div class="cell">`;
+
+      if (examCell) {
+        html += renderExamProcs(procs, cellIssues, key, ctxSafe, pi);
+      } else if (procs.length === 0) {
+        cellIssues.filter(i => i.procIdx === null || i.procIdx === undefined)
+          .forEach(issue => { html += renderChip(issue); });
+        html += `<button class="add-issue-btn" data-cell="${key}" data-ctx="${ctxSafe}" data-pidx="null" onclick="openNewFromBtn(this)">＋ 課題を追加</button>`;
+      } else {
+        procs.forEach((p, idx) => {
+          if (idx > 0 && showArrow) html += `<div class="proc-arrow">↓</div>`;
+          html += `<div class="process-box proc-${pi}">
+            ${escHtml(p)}
+            <button class="proc-del-btn" data-cell="${key}" data-idx="${idx}" data-text="${escHtml(p)}" onclick="deleteProcFromBtn(this)">✕</button>
+          </div>`;
+          cellIssues.filter(i => i.procIdx === idx).forEach(issue => { html += renderChip(issue); });
+          html += `<button class="add-issue-btn" data-cell="${key}" data-ctx="${ctxSafe}" data-pidx="${idx}" onclick="openNewFromBtn(this)">＋ 課題を追加</button>`;
+        });
+        cellIssues.filter(i => i.procIdx === null || i.procIdx === undefined)
+          .forEach(issue => { html += renderChip(issue); });
+      }
+      html += `<button class="add-proc-btn" data-cell="${key}" data-ctx="${ctxSafe}" onclick="openAddProcFromBtn(this)">＋ 業務を追加</button>`;
+      html += `</div></td>`;
+    });
+    html += `</tr>`;
+  });
+  html += `</tbody></table></div>`;
+  container.innerHTML = html;
+}
+
+// ============================================================
+// RENDER MGMT TABLE
+// ============================================================
+function renderIssueTable() {
+  const container = document.getElementById('tab-mgmt');
+
+  const timOpts   = TIMING_LIST.map(v => `<option value="${v}">${v}</option>`).join('');
+  const depOpts   = DEPT_LIST.map(v   => `<option value="${v}">${v}</option>`).join('');
+  const catOpts   = Object.entries(CATS).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('');
+  const stOpts    = `<option value="open">未着手</option><option value="progress">進行中</option><option value="done">完了</option>`;
+
+  let html = `<div class="mgmt-header">
+    <h2>📊 課題管理表</h2>
+    <button class="btn-p" onclick="openMgmtAdd()">＋ 課題を追加</button>
+  </div>
+  <div class="table-wrap"><table class="mgmt-table">
+  <colgroup>
+    <col class="cw-no"><col class="cw-tim"><col class="cw-dep"><col class="cw-cat">
+    <col class="cw-det"><col class="cw-pol"><col class="cw-asgn">
+    <col class="cw-st"><col class="cw-memo"><col class="cw-ops">
+  </colgroup>
+  <thead><tr>
+    <th class="fc fc-0"><div class="th-inner"><span class="th-title">No</span></div></th>
+    <th class="fc fc-1"><div class="th-inner">
+      <span class="th-title">タイミング</span>
+      <select class="filter-sel" id="ft-tim" onchange="setFilter('timing',this.value)"><option value="">すべて</option>${timOpts}</select>
+    </div></th>
+    <th class="fc fc-2"><div class="th-inner">
+      <span class="th-title">部署</span>
+      <select class="filter-sel" id="ft-dep" onchange="setFilter('dept',this.value)"><option value="">すべて</option>${depOpts}</select>
+    </div></th>
+    <th class="fc fc-3"><div class="th-inner">
+      <span class="th-title">課題</span>
+      <select class="filter-sel" id="ft-cat" onchange="setFilter('cat',this.value)"><option value="">すべて</option>${catOpts}</select>
+    </div></th>
+    <th><div class="th-inner">
+      <span class="th-title">課題詳細</span>
+      <input class="filter-inp" id="ft-det" type="text" placeholder="🔍 絞り込み" oninput="setFilter('detail',this.value)">
+    </div></th>
+    <th><div class="th-inner">
+      <span class="th-title">対応方針</span>
+      <input class="filter-inp" id="ft-pol" type="text" placeholder="🔍 絞り込み" oninput="setFilter('policy',this.value)">
+    </div></th>
+    <th><div class="th-inner">
+      <span class="th-title">対応責任者</span>
+      <input class="filter-inp" id="ft-asgn" type="text" placeholder="🔍 絞り込み" oninput="setFilter('assignee',this.value)">
+    </div></th>
+    <th><div class="th-inner">
+      <span class="th-title">進捗</span>
+      <select class="filter-sel" id="ft-st" onchange="setFilter('status',this.value)"><option value="">すべて</option>${stOpts}</select>
+    </div></th>
+    <th><div class="th-inner"><span class="th-title">備考</span></div></th>
+    <th><div class="th-inner"><span class="th-title"></span></div></th>
+  </tr></thead>
+  <tbody>`;
+
+  issues.forEach((issue, idx) => {
+    const cat    = CATS[issue.cat] || CATS.lang;
+    const timing = issue.timing || getTimingFromCell(issue.cell);
+    const dept   = issue.dept   || getDeptFromCell(issue.cell);
+    const isDone = issue.status === 'done';
+    html += `<tr data-iid="${issue.id}" class="${isDone?'status-done':''}">
+      <td class="col-no fc fc-0">${idx+1}</td>
+      <td class="fc fc-1">${escHtml(timing)}</td>
+      <td class="fc fc-2">${escHtml(dept)}</td>
+      <td class="fc fc-3"><span class="cat-badge ${cat.badgeClass}">${cat.label}</span></td>
+      <td class="col-detail">${isDone?`<s>${escHtml(issue.text)}</s>`:escHtml(issue.text)}</td>
+      <td><input class="mgmt-inp" type="text" value="${escHtml(issue.policy||'')}"
+          data-iid="${issue.id}" onblur="updateField(this.dataset.iid,'policy',this.value)" placeholder="対応方針..."></td>
+      <td><input class="mgmt-inp" type="text" value="${escHtml(issue.assignee||'')}"
+          data-iid="${issue.id}" onblur="updateField(this.dataset.iid,'assignee',this.value)" placeholder="担当者名..."></td>
+      <td><select class="mgmt-sel" data-iid="${issue.id}" onchange="updateStatus(this.dataset.iid,this.value)">
+        <option value="open"     ${issue.status==='open'    ?'selected':''}>未着手</option>
+        <option value="progress" ${issue.status==='progress'?'selected':''}>進行中</option>
+        <option value="done"     ${issue.status==='done'    ?'selected':''}>完了</option>
+      </select></td>
+      <td><input class="mgmt-inp" type="text" value="${escHtml(issue.memo||'')}"
+          data-iid="${issue.id}" onblur="updateField(this.dataset.iid,'memo',this.value)" placeholder="メモ..."></td>
+      <td class="col-ops">
+        <button class="mgmt-edit-btn" data-iid="${issue.id}" onclick="openMgmtEdit(this.dataset.iid)">✏️</button>
+        <button class="mgmt-del-btn"  data-iid="${issue.id}" onclick="deleteMgmtRow(this.dataset.iid)">🗑️</button>
+      </td>
+    </tr>`;
+  });
+  html += `</tbody></table></div>`;
+  container.innerHTML = html;
+  restoreFilters();
+  applyFilters();
+}
+
+// ============================================================
+// TABS — IDで比較（バグ修正済み）
+// ============================================================
+let currentPanelId = 'tab-mgmt';
+const rendered = new Set();
+
+function switchTab(btnIdx) {
+  const panelId = TAB_PANEL_ID[btnIdx];
+  // Activate correct panel by ID
+  document.querySelectorAll('.tab-panel').forEach(p => {
+    p.classList.toggle('active', p.id === panelId);
+  });
+  document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === btnIdx));
+  document.getElementById('legend-bar').style.display = (panelId === 'tab-mgmt') ? 'none' : '';
+  currentPanelId = panelId;
+
+  if (!rendered.has(panelId)) {
+    if (panelId === 'tab-mgmt') renderIssueTable();
+    else renderTab(parseInt(panelId.replace('tab-', '')));
+    rendered.add(panelId);
+  }
+}
+
+// ============================================================
+// EDIT MODES
+// ============================================================
+let isIssueMode = false, isProcMode = false;
+
+function toggleMode() {
+  isIssueMode = !isIssueMode;
+  if (isIssueMode && isProcMode) { isProcMode = false; document.body.classList.remove('proc-mode'); syncProcBtn(); }
+  document.body.classList.toggle('issue-mode', isIssueMode);
+  const b = document.getElementById('toggleMode');
+  b.textContent = isIssueMode ? '✅ 課題編集モード中' : '✏️ 課題を編集する';
+  b.classList.toggle('active', isIssueMode);
+}
+function toggleProcMode() {
+  isProcMode = !isProcMode;
+  if (isProcMode && isIssueMode) { isIssueMode = false; document.body.classList.remove('issue-mode'); syncIssueBtn(); }
+  document.body.classList.toggle('proc-mode', isProcMode);
+  syncProcBtn();
+}
+function syncProcBtn() {
+  const b = document.getElementById('toggleProcMode');
+  b.textContent = isProcMode ? '✅ 業務編集モード中' : '📝 業務を編集する';
+  b.classList.toggle('active', isProcMode);
+}
+function syncIssueBtn() {
+  const b = document.getElementById('toggleMode');
+  b.textContent = '✏️ 課題を編集する'; b.classList.remove('active');
+}
+
+function rerender() {
+  rendered.delete(currentPanelId);
+  if (currentPanelId === 'tab-mgmt') { renderIssueTable(); }
+  else { renderTab(parseInt(currentPanelId.replace('tab-',''))); }
+  rendered.add(currentPanelId);
+  // Invalidate all others
+  [...rendered].forEach(id => { if (id !== currentPanelId) rendered.delete(id); });
+}
+
+// ============================================================
+// PROCESS CRUD
+// ============================================================
+let addProcKey = '';
+function openAddProcFromBtn(btn) {
+  if (!isProcMode) return;
+  addProcKey = btn.dataset.cell;
+  const [tabId, laneId, phaseId] = addProcKey.split('-');
+  if (isExamCell(parseInt(tabId), laneId, phaseId)) {
+    document.getElementById('examProcCtx').textContent = `📍 ${btn.dataset.ctx}`;
+    document.getElementById('examProcName').value = '';
+    document.getElementById('examProcStep').value = '';
+    document.getElementById('exam-proc-overlay').classList.add('open');
+    setTimeout(() => document.getElementById('examProcName').focus(), 50);
+  } else {
+    document.getElementById('procModalCtx').textContent = `📍 ${btn.dataset.ctx}`;
+    document.getElementById('procModalText').value = '';
+    document.getElementById('proc-overlay').classList.add('open');
+    setTimeout(() => document.getElementById('procModalText').focus(), 50);
+  }
+}
+function closeProcModal() { document.getElementById('proc-overlay').classList.remove('open'); }
+function closeExamProcModal() { document.getElementById('exam-proc-overlay').classList.remove('open'); }
+function saveProc() {
+  const text = document.getElementById('procModalText').value.trim();
+  if (!text) { document.getElementById('procModalText').focus(); return; }
+  const tabId = parseInt(addProcKey.split('-')[0]);
+  const rest  = addProcKey.slice(addProcKey.indexOf('-') + 1);
+  if (!(addProcKey in customProcs)) {
+    const tab = TABS.find(t => t.id === tabId);
+    customProcs[addProcKey] = [...(tab ? (tab.processes[rest]||[]) : [])];
+  }
+  customProcs[addProcKey].push(text);
+  saveCustomProcs(); closeProcModal(); rerender();
+}
+function saveExamProc() {
+  const name = document.getElementById('examProcName').value.trim();
+  const step = document.getElementById('examProcStep').value.trim();
+  if (!name) { document.getElementById('examProcName').focus(); return; }
+  const text  = step ? `${name}::${step}` : `${name}::`;
+  const tabId = parseInt(addProcKey.split('-')[0]);
+  const rest  = addProcKey.slice(addProcKey.indexOf('-') + 1);
+  if (!(addProcKey in customProcs)) {
+    const tab = TABS.find(t => t.id === tabId);
+    customProcs[addProcKey] = [...(tab ? (tab.processes[rest]||[]) : [])];
+  }
+  customProcs[addProcKey].push(text);
+  saveCustomProcs(); closeExamProcModal(); rerender();
+}
+function deleteProcFromBtn(btn) {
+  const cellKey = btn.dataset.cell, idx = parseInt(btn.dataset.idx);
+  showConfirm(`「${btn.dataset.text}」を削除しますか？`, () => {
+    const tabId = parseInt(cellKey.split('-')[0]);
+    const rest  = cellKey.slice(cellKey.indexOf('-') + 1);
+    if (!(cellKey in customProcs)) {
+      const tab = TABS.find(t => t.id === tabId);
+      customProcs[cellKey] = [...(tab ? (tab.processes[rest]||[]) : [])];
+    }
+    customProcs[cellKey].splice(idx, 1);
+    saveCustomProcs(); rerender();
+  });
+}
+document.getElementById('proc-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('proc-overlay')) closeProcModal();
+});
+document.getElementById('exam-proc-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('exam-proc-overlay')) closeExamProcModal();
+});
+
+// ============================================================
+// SWIMLANE ISSUE MODAL
+// ============================================================
+let editingId = null, editingCell = null, editingProcIdx = null;
+
+function openNewFromBtn(btn) {
+  if (!isIssueMode) return;
+  editingId = null; editingCell = btn.dataset.cell;
+  editingProcIdx = btn.dataset.pidx === 'null' ? null : parseInt(btn.dataset.pidx);
+  document.getElementById('modalTitle').textContent = '課題を追加';
+  document.getElementById('modalCtx').textContent   = `📍 ${btn.dataset.ctx}`;
+  document.getElementById('modalCat').value  = 'lang';
+  document.getElementById('modalText').value = '';
+  document.getElementById('modalNote').value = '';
+  document.getElementById('btnDelete').style.display = 'none';
+  document.getElementById('overlay').classList.add('open');
+  setTimeout(() => document.getElementById('modalText').focus(), 50);
+}
+function openEditChip(el) {
+  if (!isIssueMode) return;
+  const issue = issues.find(i => i.id === parseInt(el.dataset.iid));
+  if (!issue) return;
+  editingId = issue.id; editingCell = issue.cell; editingProcIdx = issue.procIdx;
+  document.getElementById('modalTitle').textContent = '課題を編集';
+  document.getElementById('modalCtx').textContent   = `📍 ${issue.timing} ／ ${issue.dept}`;
+  document.getElementById('modalCat').value  = issue.cat;
+  document.getElementById('modalText').value = issue.text;
+  document.getElementById('modalNote').value = issue.note || '';
+  document.getElementById('btnDelete').style.display = 'inline-block';
+  document.getElementById('overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('overlay').classList.remove('open'); }
+function saveIssue() {
+  const text = document.getElementById('modalText').value.trim();
+  if (!text) { document.getElementById('modalText').focus(); return; }
+  const cat  = document.getElementById('modalCat').value;
+  const note = document.getElementById('modalNote').value.trim();
+  if (editingId === null) {
+    issues.push({
+      id:nextId++, cell:editingCell, procIdx:editingProcIdx,
+      cat, text, note, policy:'', assignee:'', status:'open', memo:'',
+      timing:getTimingFromCell(editingCell), dept:getDeptFromCell(editingCell),
+    });
+  } else {
+    const issue = issues.find(i => i.id === editingId);
+    if (issue) { issue.cat = cat; issue.text = text; issue.note = note; }
+  }
+  saveIssues(); closeModal(); rerender();
+}
+function deleteIssueFromModal() {
+  showConfirm('この課題を削除しますか？', () => {
+    issues = issues.filter(i => i.id !== editingId);
+    saveIssues(); closeModal(); rerender();
+  });
+}
+document.getElementById('overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('overlay')) closeModal();
+});
+
+// ============================================================
+// MGMT TABLE OPS
+// ============================================================
+function updateStatus(id, status) {
+  const iid   = parseInt(id);
+  const issue = issues.find(i => i.id === iid);
+  if (!issue) return;
+  issue.status = status; saveIssues();
+  const row = document.querySelector(`tr[data-iid="${iid}"]`);
+  if (row) {
+    row.className = status === 'done' ? 'status-done' : '';
+    const det = row.querySelector('.col-detail');
+    if (det) det.innerHTML = status==='done' ? `<s>${escHtml(issue.text)}</s>` : escHtml(issue.text);
+  }
+  // Invalidate swimlane tabs
+  ['tab-0','tab-1','tab-2'].forEach(id => rendered.delete(id));
+}
+function updateField(id, field, value) {
+  const issue = issues.find(i => i.id === parseInt(id));
+  if (issue) { issue[field] = value; saveIssues(); }
+}
+
+let mgmtEditingId = null;
+function openMgmtAdd() {
+  mgmtEditingId = null;
+  document.getElementById('mgmtTitle').textContent    = '課題を追加';
+  document.getElementById('mgmtTiming').value         = '健診前';
+  document.getElementById('mgmtDept').value           = '受診者';
+  document.getElementById('mgmtCat').value            = 'lang';
+  document.getElementById('mgmtText').value           = '';
+  document.getElementById('mgmtPolicy').value         = '';
+  document.getElementById('mgmtAssignee').value       = '';
+  document.getElementById('mgmtStatus').value         = 'open';
+  document.getElementById('mgmtMemo').value           = '';
+  document.getElementById('mgmtBtnDel').style.display = 'none';
+  document.getElementById('mgmt-overlay').classList.add('open');
+  setTimeout(() => document.getElementById('mgmtText').focus(), 50);
+}
+function openMgmtEdit(id) {
+  const issue = issues.find(i => i.id === parseInt(id));
+  if (!issue) return;
+  mgmtEditingId = issue.id;
+  document.getElementById('mgmtTitle').textContent    = '課題を編集';
+  document.getElementById('mgmtTiming').value         = issue.timing   || getTimingFromCell(issue.cell) || '健診前';
+  document.getElementById('mgmtDept').value           = issue.dept     || getDeptFromCell(issue.cell)   || '受診者';
+  document.getElementById('mgmtCat').value            = issue.cat;
+  document.getElementById('mgmtText').value           = issue.text;
+  document.getElementById('mgmtPolicy').value         = issue.policy   || '';
+  document.getElementById('mgmtAssignee').value       = issue.assignee || '';
+  document.getElementById('mgmtStatus').value         = issue.status   || 'open';
+  document.getElementById('mgmtMemo').value           = issue.memo     || '';
+  document.getElementById('mgmtBtnDel').style.display = 'inline-block';
+  document.getElementById('mgmt-overlay').classList.add('open');
+}
+function closeMgmtModal() { document.getElementById('mgmt-overlay').classList.remove('open'); }
+function saveMgmtIssue() {
+  const text = document.getElementById('mgmtText').value.trim();
+  if (!text) { document.getElementById('mgmtText').focus(); return; }
+  const cat      = document.getElementById('mgmtCat').value;
+  const timing   = document.getElementById('mgmtTiming').value;
+  const dept     = document.getElementById('mgmtDept').value;
+  const status   = document.getElementById('mgmtStatus').value;
+  const memo     = document.getElementById('mgmtMemo').value.trim();
+  const policy   = document.getElementById('mgmtPolicy').value.trim();
+  const assignee = document.getElementById('mgmtAssignee').value.trim();
+  if (mgmtEditingId === null) {
+    issues.push({ id:nextId++, cell:null, procIdx:null, cat, text, note:'', policy, assignee, timing, dept, status, memo });
+  } else {
+    const issue = issues.find(i => i.id === mgmtEditingId);
+    if (issue) Object.assign(issue, { cat, text, policy, assignee, timing, dept, status, memo });
+  }
+  saveIssues(); closeMgmtModal();
+  ['tab-0','tab-1','tab-2'].forEach(id => rendered.delete(id));
+  renderIssueTable(); rendered.add('tab-mgmt');
+}
+function deleteMgmtFromModal() {
+  showConfirm('この課題を削除しますか？', () => {
+    issues = issues.filter(i => i.id !== mgmtEditingId);
+    saveIssues(); closeMgmtModal();
+    ['tab-0','tab-1','tab-2'].forEach(id => rendered.delete(id));
+    renderIssueTable(); rendered.add('tab-mgmt');
+  });
+}
+function deleteMgmtRow(id) {
+  const iid   = parseInt(id);
+  const issue = issues.find(i => i.id === iid);
+  const label = issue ? `「${issue.text.slice(0,22)}${issue.text.length>22?'…':''}」` : 'この課題';
+  showConfirm(`${label}を削除しますか？`, () => {
+    issues = issues.filter(i => i.id !== iid);
+    saveIssues();
+    ['tab-0','tab-1','tab-2'].forEach(id => rendered.delete(id));
+    renderIssueTable(); rendered.add('tab-mgmt');
+  });
+}
+document.getElementById('mgmt-overlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('mgmt-overlay')) closeMgmtModal();
+});
+
+// ============================================================
+// INIT
+// ============================================================
+initData().then(() => {
+  renderIssueTable();
+  rendered.add('tab-mgmt');
+});
+</script>
+</body>
+</html>
