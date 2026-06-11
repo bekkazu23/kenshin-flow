@@ -317,6 +317,46 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
   padding: 12px 20px; margin: 16px 24px; font-size: 0.9rem; text-align: center;
 }
 #api-error.show { display: block; }
+
+/* ── SAVE STATUS INDICATOR ──────────────────── */
+#save-status {
+  font-size: 0.78rem; font-weight: 600; padding: 4px 12px;
+  border-radius: 20px; transition: opacity 0.3s; opacity: 0;
+  white-space: nowrap;
+}
+#save-status.saving { opacity:1; background: #fef3e8; color: #b07030; }
+#save-status.saved  { opacity:1; background: #edf7ef; color: #3a8a4a; }
+#save-status.error  { opacity:1; background: #fde8ec; color: #8c2a3a; }
+
+/* ── CONFLICT DIALOG ────────────────────────── */
+#conflict-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(61,43,53,0.55); z-index: 300;
+  align-items: center; justify-content: center;
+}
+#conflict-overlay.open { display: flex; }
+#conflict-box {
+  background: white; border-radius: 18px; padding: 28px 32px;
+  max-width: 520px; width: 92%; box-shadow: 0 8px 32px rgba(140,58,82,0.22);
+}
+#conflict-box h3 { font-size: 1.05rem; color: #8c3a52; margin-bottom: 10px; }
+#conflict-list {
+  max-height: 220px; overflow-y: auto; margin: 12px 0;
+  border: 1px solid #f0dde3; border-radius: 8px; padding: 10px 14px;
+  font-size: 0.88rem; line-height: 1.8; color: #3d2b35;
+}
+.conflict-item { padding: 6px 0; border-bottom: 1px solid #f5e8eb; }
+.conflict-item:last-child { border-bottom: none; }
+.conflict-item strong { color: #8c3a52; }
+#conflict-box .modal-actions { margin-top: 18px; }
+
+/* ── POLL STATUS dot ────────────────────────── */
+#poll-dot {
+  display: inline-block; width: 8px; height: 8px;
+  border-radius: 50%; background: #b0c8b0; margin-right: 6px;
+  vertical-align: middle; transition: background 0.4s;
+}
+#poll-dot.active { background: #5aaa6a; }
 .modal {
   background: white; border-radius: 18px; padding: 28px;
   width: 460px; max-width: 92vw; max-height: 90vh; overflow-y: auto;
@@ -378,10 +418,27 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
     <h1>🌸 外国人健診受入れ準備：各部門課題管理表</h1>
   </div>
   <div class="header-btns">
+    <span id="poll-dot" title="自動更新中"></span>
+    <span id="save-status"></span>
     <button class="hbtn" id="toggleProcMode" onclick="toggleProcMode()">📝 業務を編集する</button>
     <button class="hbtn" id="toggleMode"     onclick="toggleMode()">✏️ 課題を編集する</button>
   </div>
 </header>
+
+<!-- 競合ダイアログ -->
+<div id="conflict-overlay">
+  <div id="conflict-box">
+    <h3>⚠️ データの競合が検出されました</h3>
+    <p style="font-size:0.88rem;color:#5a3a44;margin-bottom:8px;">
+      以下の課題が他のユーザーによって同時に編集されました。どちらのデータを使用しますか？
+    </p>
+    <div id="conflict-list"></div>
+    <div class="modal-actions">
+      <button class="btn-s" onclick="resolveConflict('local')">自分の編集を優先</button>
+      <button class="btn-p" onclick="resolveConflict('server')">サーバーの内容を使用</button>
+    </div>
+  </div>
+</div>
 
 <div class="tab-bar">
   <button class="tab-btn active" onclick="switchTab(0)">📊 課題管理表</button>
@@ -692,20 +749,126 @@ function _loadCache() {
   nextId      = issues.length ? Math.max(...issues.map(i => i.id)) + 1 : 1;
 }
 
-// API 経由の保存（Content-Type: text/plain でプリフライト回避）
+// ── 保存インジケーター ────────────────────────────────────────
+let _saveStatusTimer = null;
+function showSaveStatus(state) {
+  const el = document.getElementById('save-status');
+  if (!el) return;
+  clearTimeout(_saveStatusTimer);
+  const labels = { saving:'保存中…', saved:'✓ 保存済み', error:'✗ 保存失敗' };
+  el.textContent = labels[state] || '';
+  el.className   = state;
+  if (state === 'saved' || state === 'error') {
+    _saveStatusTimer = setTimeout(() => { el.textContent=''; el.className=''; }, 3000);
+  }
+}
+
+// ── API 保存 ─────────────────────────────────────────────────
 async function _apiPost(type, data) {
   if (!API_URL) return;
+  showSaveStatus('saving');
   try {
     await fetch(API_URL, {
       method:  'POST',
       headers: { 'Content-Type': 'text/plain' },
       body:    JSON.stringify({ type, data })
     });
-  } catch (e) { /* サイレント失敗 — ローカルキャッシュが保持 */ }
+    showSaveStatus('saved');
+    _syncedSnapshot = JSON.stringify(issues); // 保存成功時にスナップショット更新
+  } catch (e) {
+    showSaveStatus('error');
+  }
 }
 
 function saveIssues()      { _cacheIssues(); _apiPost('issues', issues); }
 function saveCustomProcs() { _cacheProcs();  _apiPost('procs',  customProcs); }
+
+// ── 自動ポーリング（30秒ごと） ────────────────────────────────
+const POLL_MS = 30000;
+let _syncedSnapshot = ''; // 最後にサーバーと同期した時点の issues JSON
+let _pendingServerData = null;
+
+function _isAnyModalOpen() {
+  return [...document.querySelectorAll('.overlay, #conflict-overlay')]
+    .some(el => el.classList.contains('open'));
+}
+
+async function pollServer() {
+  if (!API_URL || _isAnyModalOpen()) return;
+  try {
+    const res  = await fetch(API_URL + '?_=' + Date.now());
+    const data = await res.json();
+    const serverJson = JSON.stringify(data.issues || []);
+
+    if (serverJson === _syncedSnapshot) return; // 変化なし
+
+    const serverIssues = migrateIssues(data.issues || []);
+    const conflicts    = _detectConflicts(serverIssues);
+
+    // ポーリングドット点灯
+    const dot = document.getElementById('poll-dot');
+    if (dot) { dot.classList.add('active'); setTimeout(() => dot.classList.remove('active'), 1200); }
+
+    if (conflicts.length > 0) {
+      _pendingServerData = { issues: serverIssues, procs: data.customProcs || {} };
+      _showConflictDialog(conflicts);
+    } else {
+      _applyServerData(serverIssues, data.customProcs || {}, serverJson);
+    }
+  } catch(e) { /* ネットワークエラーは無視 */ }
+}
+
+function _applyServerData(serverIssues, serverProcs, serverJson) {
+  issues      = serverIssues;
+  customProcs = serverProcs;
+  nextId      = issues.length ? Math.max(...issues.map(i => i.id)) + 1 : 1;
+  _syncedSnapshot = serverJson || JSON.stringify(serverIssues);
+  _cacheIssues(); _cacheProcs();
+  rerender();
+}
+
+// ── 競合検知 ─────────────────────────────────────────────────
+function _detectConflicts(serverIssues) {
+  if (!_syncedSnapshot) return []; // 初回同期前は競合なし
+  const syncedMap = new Map(JSON.parse(_syncedSnapshot).map(i => [i.id, i]));
+  const localMap  = new Map(issues.map(i => [i.id, i]));
+  const serverMap = new Map(serverIssues.map(i => [i.id, i]));
+  const conflicts = [];
+
+  for (const [id, srv] of serverMap) {
+    const synced = syncedMap.get(id);
+    const local  = localMap.get(id);
+    if (!synced || !local) continue;
+    const srvChanged   = JSON.stringify(srv)    !== JSON.stringify(synced);
+    const localChanged = JSON.stringify(local)  !== JSON.stringify(synced);
+    if (srvChanged && localChanged) conflicts.push({ id, local, server: srv });
+  }
+  return conflicts;
+}
+
+function _showConflictDialog(conflicts) {
+  const list = document.getElementById('conflict-list');
+  list.innerHTML = conflicts.map(c => `
+    <div class="conflict-item">
+      <strong>課題 #${c.id}</strong>：${escHtml(c.local.text)}<br>
+      <span style="color:#5a7a5a">　サーバー：${escHtml(c.server.text)}</span><br>
+      <span style="color:#7a5a5a">　あなた：${escHtml(c.local.text)}</span>
+    </div>`).join('');
+  document.getElementById('conflict-overlay').classList.add('open');
+}
+
+function resolveConflict(choice) {
+  document.getElementById('conflict-overlay').classList.remove('open');
+  if (!_pendingServerData) return;
+  if (choice === 'server') {
+    _applyServerData(_pendingServerData.issues, _pendingServerData.procs, JSON.stringify(_pendingServerData.issues));
+  } else {
+    // ローカル優先 — スナップショットだけ更新してサーバーに上書き保存
+    _syncedSnapshot = JSON.stringify(issues);
+    saveIssues();
+  }
+  _pendingServerData = null;
+}
 
 // 起動時データ読み込み
 async function initData() {
@@ -723,12 +886,14 @@ async function initData() {
     // サーバーにデータがなければサンプルを使用
     if (issues.length === 0) issues = JSON.parse(JSON.stringify(SAMPLE_ISSUES));
     nextId = issues.length ? Math.max(...issues.map(i => i.id)) + 1 : 1;
-    _cacheIssues(); _cacheProcs(); // ローカルにも同期
+    _syncedSnapshot = JSON.stringify(issues); // 競合検知用スナップショット
+    _cacheIssues(); _cacheProcs();
   } catch (e) {
-    _loadCache(); // API失敗 → ローカルキャッシュにフォールバック
+    _loadCache();
     document.getElementById('api-error').classList.add('show');
   }
   document.getElementById('loading-overlay').classList.add('hidden');
+  setInterval(pollServer, POLL_MS); // 自動ポーリング開始
 }
 
 function getProcs(tabId, laneId, phaseId) {
