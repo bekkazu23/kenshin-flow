@@ -165,6 +165,8 @@ body.proc-mode .proc-del-btn:hover { color: #8c3a52; }
 .cat-flow   .chip-cat { background: #c97080; }
 .cat-system { background: #f3e8ff; border-color: #d8b4fe; }
 .cat-system .chip-cat { background: #9060c8; }
+.cat-other  { background: #f0f0f0; border-color: #c8c8c8; }
+.cat-other  .chip-cat { background: #708090; }
 .issue-chip.status-done { opacity: 0.52; }
 .issue-chip.status-done .issue-text { text-decoration: line-through; text-decoration-color: #8c3a52; }
 body:not(.issue-mode) .issue-chip { pointer-events: none; }
@@ -216,7 +218,7 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
 .mgmt-table .cw-tim  { width: 90px;  }
 .mgmt-table .cw-gym  { width: 100px; }
 .mgmt-table .cw-dep  { width: 110px; }
-.mgmt-table .cw-cat  { width: 110px; }
+.mgmt-table .cw-cat  { width: 96px; }
 .mgmt-table .cw-det  { width: 400px; }
 .mgmt-table .cw-st   { width: 120px; }
 
@@ -275,6 +277,7 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
 .badge-lang   { background: #c4920c; }
 .badge-flow   { background: #c97080; }
 .badge-system { background: #9060c8; }
+.badge-other  { background: #708090; }
 
 .mgmt-sel, .mgmt-inp {
   width: 100%; border: 1.5px solid #f0dde3; border-radius: 7px;
@@ -574,6 +577,7 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
       <option value="lang">🌐 言語</option>
       <option value="flow">🔄 業務フロー</option>
       <option value="system">💻 システム</option>
+      <option value="other">📌 その他</option>
     </select>
     <label>課題の内容</label>
     <textarea id="modalText" placeholder="例：問診票が日本語のみで外国人が記入できない"></textarea>
@@ -627,13 +631,14 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
     <select id="mgmtDept">
       <option>受診者</option><option>予約</option><option>受付</option>
       <option>看護科</option><option>検査科</option><option>放射線科</option>
-      <option>医師</option><option>結果</option><option>請求</option>
+      <option>医師</option><option>結果</option><option>請求</option><option>運営</option>
     </select>
     <label>課題カテゴリ</label>
     <select id="mgmtCat">
       <option value="lang">🌐 言語</option>
       <option value="flow">🔄 業務フロー</option>
       <option value="system">💻 システム</option>
+      <option value="other">📌 その他</option>
     </select>
     <label>課題詳細</label>
     <textarea id="mgmtText" placeholder="課題の内容を入力してください"></textarea>
@@ -675,7 +680,7 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
 // CONSTANTS
 // ============================================================
 const TIMING_LIST  = ['健診前', '健診当日', '健診後'];
-const DEPT_LIST    = ['受診者','予約','受付','看護科','検査科','放射線科','医師','結果','請求'];
+const DEPT_LIST    = ['予約','受付','看護科','検査科','放射線科','医師','結果','請求','運営'];
 const LANE_TO_DEPT = {
   patient:'受診者', yoyaku:'予約', iji:'受付', kango:'看護科',
   kensa:'検査科', housha:'放射線科', ishi:'医師', kekka:'結果', seikyuu:'請求'
@@ -684,6 +689,7 @@ const CATS = {
   lang:   { label:'言語',     badgeClass:'badge-lang'   },
   flow:   { label:'業務フロー', badgeClass:'badge-flow'   },
   system: { label:'システム',  badgeClass:'badge-system' },
+  other:  { label:'その他',   badgeClass:'badge-other'  },
 };
 
 function getDeptFromCell(cell) {
@@ -1302,7 +1308,7 @@ function renderIssueTable() {
       <select class="filter-sel" id="ft-dep" onchange="setFilter('dept',this.value)"><option value="">すべて</option>${depOpts}</select>
     </div></th>
     <th><div class="th-inner">
-      <span class="th-title">課題</span>
+      <span class="th-title">課題項目</span>
       <select class="filter-sel" id="ft-cat" onchange="setFilter('cat',this.value)"><option value="">すべて</option>${catOpts}</select>
     </div></th>
     <th><div class="th-inner">
@@ -1325,8 +1331,10 @@ function renderIssueTable() {
       <td class="fc fc-0">${escHtml(timing)}</td>
       <td class="fc fc-1">${escHtml(gyoumu)}</td>
       <td class="fc fc-2" onclick="event.stopPropagation()">
-        <input class="mgmt-inp" type="text" value="${escHtml(issue.dept||'')}"
-          data-iid="${issue.id}" onblur="updateField(this.dataset.iid,'dept',this.value)" placeholder="部署名...">
+        <select class="mgmt-sel" data-iid="${issue.id}" onchange="updateField(this.dataset.iid,'dept',this.value)">
+          <option value="">―</option>
+          ${DEPT_LIST.map(v=>`<option value="${v}" ${issue.dept===v?'selected':''}>${v}</option>`).join('')}
+        </select>
       </td>
       <td><span class="cat-badge ${cat.badgeClass}">${cat.label}</span></td>
       <td class="col-detail">${isDone?`<s>${escHtml(issue.text)}</s>`:escHtml(issue.text)}</td>
