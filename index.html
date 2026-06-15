@@ -209,14 +209,15 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
 }
 .mgmt-table {
   width: 100%; border-collapse: collapse; background: white;
-  min-width: 930px; table-layout: fixed;
+  min-width: 930px; table-layout: fixed; /* 90+100+110+110+400+120 */
 }
 
 /* Column widths via colgroup */
 .mgmt-table .cw-tim  { width: 90px;  }
-.mgmt-table .cw-dep  { width: 90px;  }
+.mgmt-table .cw-gym  { width: 100px; }
+.mgmt-table .cw-dep  { width: 110px; }
 .mgmt-table .cw-cat  { width: 110px; }
-.mgmt-table .cw-det  { width: 520px; }
+.mgmt-table .cw-det  { width: 400px; }
 .mgmt-table .cw-st   { width: 120px; }
 
 /* Sticky header */
@@ -247,7 +248,7 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
 .mgmt-table thead th.fc { z-index: 5; }
 .fc-0 { left: 0px;   }
 .fc-1 { left: 90px;  }
-.fc-2 { left: 180px; }
+.fc-2 { left: 190px; }
 /* Visual separator after frozen area */
 .mgmt-table th.fc-2, .mgmt-table td.fc-2 {
   box-shadow: 4px 0 8px -2px rgba(140,58,82,0.18);
@@ -678,6 +679,15 @@ function getDeptFromCell(cell) {
   if (!cell) return '';
   return LANE_TO_DEPT[cell.split('-')[1]] || '';
 }
+function getLaneLabelFromCell(cell) {
+  if (!cell) return '';
+  const [tabId, laneId] = cell.split('-');
+  const tab = TABS.find(t => t.id === parseInt(tabId));
+  if (!tab) return '';
+  const lane = tab.lanes.find(l => l.id === laneId);
+  return lane ? lane.label : '';
+}
+const GYOUMU_LIST = [...new Set(TABS.flatMap(t => t.lanes.map(l => l.label)))];
 function getTimingFromCell(cell) {
   if (!cell) return '';
   return TIMING_LIST[parseInt(cell.split('-')[0])] || '';
@@ -818,7 +828,7 @@ function migrateIssues(arr) {
     policy:   i.policy   || '',
     assignee: i.assignee || '',
     timing:   i.timing   || getTimingFromCell(i.cell),
-    dept:     i.dept     || getDeptFromCell(i.cell),
+    dept:     getLaneLabelFromCell(i.cell) === '受診者' ? '' : (i.dept === '受診者' ? '' : (i.dept || getDeptFromCell(i.cell))),
     procIdx:    i.procIdx  !== undefined ? i.procIdx : null,
     policyLog:  Array.isArray(i.policyLog) ? i.policyLog : (i.policy ? [{text: i.policy, date: ''}] : []),
   }));
@@ -996,7 +1006,7 @@ function getProcs(tabId, laneId, phaseId) {
 }
 
 // ── FILTERS ──────────────────────────────────────────────────
-let filters = { timing:'', dept:'', cat:'', detail:'', status:'' };
+let filters = { timing:'', gyoumu:'', dept:'', cat:'', detail:'', status:'' };
 
 function setFilter(key, value) { filters[key] = value; applyFilters(); }
 
@@ -1007,17 +1017,19 @@ function applyFilters() {
     const timing = issue.timing || getTimingFromCell(issue.cell);
     const dept   = issue.dept   || getDeptFromCell(issue.cell);
     let show = true;
-    if (filters.timing   && timing       !== filters.timing)               show = false;
-    if (filters.dept     && dept         !== filters.dept)                 show = false;
-    if (filters.cat      && issue.cat    !== filters.cat)                  show = false;
-    if (filters.status   && issue.status !== filters.status)               show = false;
-    if (filters.detail   && !issue.text.includes(filters.detail))          show = false;
+    const gyoumu = getLaneLabelFromCell(issue.cell);
+    if (filters.timing   && timing              !== filters.timing)        show = false;
+    if (filters.gyoumu   && gyoumu             !== filters.gyoumu)        show = false;
+    if (filters.dept     && issue.dept         !== filters.dept)          show = false;
+    if (filters.cat      && issue.cat          !== filters.cat)           show = false;
+    if (filters.status   && issue.status       !== filters.status)        show = false;
+    if (filters.detail   && !issue.text.includes(filters.detail))         show = false;
     row.style.display = show ? '' : 'none';
   });
 }
 
 function restoreFilters() {
-  const map = { timing:'ft-tim', dept:'ft-dep', cat:'ft-cat', detail:'ft-det', status:'ft-st' };
+  const map = { timing:'ft-tim', gyoumu:'ft-gym', dept:'ft-dep', cat:'ft-cat', detail:'ft-det', status:'ft-st' };
   Object.entries(map).forEach(([k, id]) => {
     const el = document.getElementById(id);
     if (el) el.value = filters[k] || '';
@@ -1233,7 +1245,8 @@ function renderIssueTable() {
   const container = document.getElementById('tab-mgmt');
 
   const timOpts   = TIMING_LIST.map(v => `<option value="${v}">${v}</option>`).join('');
-  const depOpts   = DEPT_LIST.map(v   => `<option value="${v}">${v}</option>`).join('');
+  const gymOpts   = GYOUMU_LIST.map(v  => `<option value="${v}">${v}</option>`).join('');
+  const depOpts   = DEPT_LIST.filter(v => v !== '受診者').map(v => `<option value="${v}">${v}</option>`).join('');
   const catOpts   = Object.entries(CATS).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('');
   const stOpts    = `<option value="open">未着手</option><option value="progress">進行中</option><option value="done">完了</option>`;
 
@@ -1243,8 +1256,8 @@ function renderIssueTable() {
   </div>
   <div class="table-wrap"><table class="mgmt-table">
   <colgroup>
-    <col class="cw-tim"><col class="cw-dep"><col class="cw-cat">
-    <col class="cw-det"><col class="cw-st">
+    <col class="cw-tim"><col class="cw-gym"><col class="cw-dep">
+    <col class="cw-cat"><col class="cw-det"><col class="cw-st">
   </colgroup>
   <thead><tr>
     <th class="fc fc-0"><div class="th-inner">
@@ -1252,10 +1265,14 @@ function renderIssueTable() {
       <select class="filter-sel" id="ft-tim" onchange="setFilter('timing',this.value)"><option value="">すべて</option>${timOpts}</select>
     </div></th>
     <th class="fc fc-1"><div class="th-inner">
-      <span class="th-title">部署</span>
-      <select class="filter-sel" id="ft-dep" onchange="setFilter('dept',this.value)"><option value="">すべて</option>${depOpts}</select>
+      <span class="th-title">業務</span>
+      <select class="filter-sel" id="ft-gym" onchange="setFilter('gyoumu',this.value)"><option value="">すべて</option>${gymOpts}</select>
     </div></th>
     <th class="fc fc-2"><div class="th-inner">
+      <span class="th-title">対応部署</span>
+      <select class="filter-sel" id="ft-dep" onchange="setFilter('dept',this.value)"><option value="">すべて</option>${depOpts}</select>
+    </div></th>
+    <th><div class="th-inner">
       <span class="th-title">課題</span>
       <select class="filter-sel" id="ft-cat" onchange="setFilter('cat',this.value)"><option value="">すべて</option>${catOpts}</select>
     </div></th>
@@ -1273,12 +1290,16 @@ function renderIssueTable() {
   issues.forEach((issue, idx) => {
     const cat    = CATS[issue.cat] || CATS.lang;
     const timing = issue.timing || getTimingFromCell(issue.cell);
-    const dept   = issue.dept   || getDeptFromCell(issue.cell);
+    const gyoumu = getLaneLabelFromCell(issue.cell);
     const isDone = issue.status === 'done';
     html += `<tr data-iid="${issue.id}" class="${isDone?'status-done':''}" onclick="openDetailPanel(${issue.id})">
       <td class="fc fc-0">${escHtml(timing)}</td>
-      <td class="fc fc-1">${escHtml(dept)}</td>
-      <td class="fc fc-2"><span class="cat-badge ${cat.badgeClass}">${cat.label}</span></td>
+      <td class="fc fc-1">${escHtml(gyoumu)}</td>
+      <td class="fc fc-2" onclick="event.stopPropagation()">
+        <input class="mgmt-inp" type="text" value="${escHtml(issue.dept||'')}"
+          data-iid="${issue.id}" onblur="updateField(this.dataset.iid,'dept',this.value)" placeholder="部署名...">
+      </td>
+      <td><span class="cat-badge ${cat.badgeClass}">${cat.label}</span></td>
       <td class="col-detail">${isDone?`<s>${escHtml(issue.text)}</s>`:escHtml(issue.text)}</td>
       <td onclick="event.stopPropagation()"><select class="mgmt-sel" data-iid="${issue.id}" onchange="updateStatus(this.dataset.iid,this.value)">
         <option value="open"     ${issue.status==='open'    ?'selected':''}>未着手</option>
