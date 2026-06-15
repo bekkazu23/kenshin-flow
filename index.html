@@ -268,8 +268,8 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
 .col-ops { text-align: center; }
 
 .cat-badge {
-  display: inline-block; font-size: 0.74rem; font-weight: 700;
-  border-radius: 5px; padding: 2px 8px; color: white; white-space: nowrap;
+  display: inline-block; font-size: 0.9rem; font-weight: 700;
+  border-radius: 5px; padding: 3px 10px; color: white; white-space: nowrap;
 }
 .badge-lang   { background: #c4920c; }
 .badge-flow   { background: #c97080; }
@@ -391,6 +391,80 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
 .confirm-modal h3 { font-size: 1.05rem; }
 .confirm-modal p  { font-size: 0.9rem; color: #6a4a5a; margin-top: 8px; line-height: 1.6; }
 .confirm-modal .modal-actions { justify-content: center; }
+
+/* ── DETAIL SLIDE PANEL ─────────────────── */
+#detail-backdrop {
+  display: none; position: fixed; inset: 0;
+  background: rgba(61,43,53,0.32); z-index: 400;
+}
+#detail-backdrop.open { display: block; }
+#detail-panel {
+  position: fixed; top: 0; right: -480px; width: 460px; height: 100vh;
+  background: white; z-index: 401; box-shadow: -6px 0 32px rgba(140,58,82,0.18);
+  display: flex; flex-direction: column;
+  transition: right 0.28s cubic-bezier(0.4,0,0.2,1);
+  overflow: hidden;
+}
+#detail-panel.open { right: 0; }
+#dp-header {
+  background: linear-gradient(135deg, #8c3a52 0%, #b05a72 100%);
+  color: white; padding: 18px 20px 14px;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  flex-shrink: 0;
+}
+#dp-header-info { flex: 1; min-width: 0; }
+#dp-meta { font-size: 0.78rem; opacity: 0.82; margin-bottom: 6px; display: flex; gap: 8px; flex-wrap: wrap; }
+#dp-meta span { background: rgba(255,255,255,0.2); border-radius: 4px; padding: 1px 7px; }
+#dp-issue-text { font-size: 0.95rem; font-weight: 700; line-height: 1.5; }
+#dp-close {
+  background: rgba(255,255,255,0.2); border: none; color: white;
+  width: 30px; height: 30px; border-radius: 50%; font-size: 1.1rem;
+  cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  transition: background 0.15s;
+}
+#dp-close:hover { background: rgba(255,255,255,0.38); }
+#dp-body { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+#dp-log-title {
+  font-size: 0.82rem; font-weight: 700; color: #8c6070; letter-spacing: 0.04em;
+  text-transform: uppercase; border-bottom: 1px solid #f0dde3; padding-bottom: 8px;
+}
+.dp-entry {
+  background: #fdf7f9; border-radius: 10px; padding: 12px 14px;
+  border-left: 3px solid #c97080; position: relative;
+}
+.dp-entry-date {
+  font-size: 0.74rem; color: #a07080; margin-bottom: 6px; font-weight: 600;
+}
+.dp-entry-text { font-size: 0.9rem; line-height: 1.65; color: #3d2b35; white-space: pre-wrap; }
+.dp-entry-del {
+  position: absolute; top: 8px; right: 10px;
+  background: none; border: none; color: #d0a0a8; font-size: 0.8rem;
+  cursor: pointer; padding: 2px 4px; line-height: 1;
+}
+.dp-entry-del:hover { color: #c97080; }
+.dp-empty { font-size: 0.88rem; color: #b09098; text-align: center; padding: 20px 0; }
+#dp-add-area {
+  background: #fdf0f3; border-radius: 12px; padding: 14px;
+  border: 1.5px dashed #e8c0cc; flex-shrink: 0;
+}
+#dp-add-label { font-size: 0.82rem; font-weight: 700; color: #8c3a52; margin-bottom: 8px; }
+#dp-add-text {
+  width: 100%; padding: 9px 12px; border: 1.5px solid #f0dde3; border-radius: 8px;
+  font-size: 0.88rem; font-family: inherit; color: #3d2b35;
+  resize: vertical; min-height: 80px; background: white;
+}
+#dp-add-text:focus { outline: none; border-color: #c97080; }
+#dp-add-footer { display: flex; justify-content: flex-end; margin-top: 8px; }
+#dp-save-btn {
+  background: linear-gradient(135deg, #8c3a52, #b05a72); color: white; border: none;
+  padding: 8px 20px; border-radius: 8px; cursor: pointer; font-size: 0.86rem;
+  font-weight: 700; font-family: inherit; transition: opacity 0.15s;
+}
+#dp-save-btn:hover { opacity: 0.88; }
+
+/* 課題管理表の行をクリック可能に */
+.mgmt-table tbody tr { cursor: pointer; }
+.mgmt-table tbody tr:hover td { background: #fdf0f3 !important; }
 </style>
 </head>
 <body>
@@ -430,6 +504,29 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
     <div class="modal-actions">
       <button class="btn-s" onclick="resolveConflict('local')">自分の編集を優先</button>
       <button class="btn-p" onclick="resolveConflict('server')">サーバーの内容を使用</button>
+    </div>
+  </div>
+</div>
+
+<!-- 対応方針スライドパネル -->
+<div id="detail-backdrop" onclick="closeDetailPanel()"></div>
+<div id="detail-panel">
+  <div id="dp-header">
+    <div id="dp-header-info">
+      <div id="dp-meta"></div>
+      <div id="dp-issue-text"></div>
+    </div>
+    <button id="dp-close" onclick="closeDetailPanel()">✕</button>
+  </div>
+  <div id="dp-body">
+    <div id="dp-log-title">対応方針・経緯</div>
+    <div id="dp-log-list"></div>
+    <div id="dp-add-area">
+      <div id="dp-add-label">＋ 追記する</div>
+      <textarea id="dp-add-text" placeholder="対応方針・決定事項・経緯を記入..."></textarea>
+      <div id="dp-add-footer">
+        <button id="dp-save-btn" onclick="savePolicyEntry()">保存</button>
+      </div>
     </div>
   </div>
 </div>
@@ -722,7 +819,8 @@ function migrateIssues(arr) {
     assignee: i.assignee || '',
     timing:   i.timing   || getTimingFromCell(i.cell),
     dept:     i.dept     || getDeptFromCell(i.cell),
-    procIdx:  i.procIdx  !== undefined ? i.procIdx : null,
+    procIdx:    i.procIdx  !== undefined ? i.procIdx : null,
+    policyLog:  Array.isArray(i.policyLog) ? i.policyLog : (i.policy ? [{text: i.policy, date: ''}] : []),
   }));
 }
 // ── API 設定 ─────────────────────────────────────────────────
@@ -926,6 +1024,72 @@ function restoreFilters() {
   });
 }
 
+// ── DETAIL SLIDE PANEL ───────────────────────────────────────
+let _dpIid = null;
+
+function openDetailPanel(iid) {
+  _dpIid = parseInt(iid);
+  renderDetailPanel();
+  document.getElementById('detail-backdrop').classList.add('open');
+  document.getElementById('detail-panel').classList.add('open');
+  document.getElementById('dp-add-text').value = '';
+}
+
+function closeDetailPanel() {
+  document.getElementById('detail-backdrop').classList.remove('open');
+  document.getElementById('detail-panel').classList.remove('open');
+  _dpIid = null;
+}
+
+function renderDetailPanel() {
+  const issue = issues.find(i => i.id === _dpIid);
+  if (!issue) return;
+  const cat    = CATS[issue.cat] || CATS.lang;
+  const timing = issue.timing || getTimingFromCell(issue.cell);
+  const dept   = issue.dept   || getDeptFromCell(issue.cell);
+
+  document.getElementById('dp-meta').innerHTML =
+    `<span>${escHtml(timing)}</span><span>${escHtml(dept)}</span><span>${cat.label}</span>`;
+  document.getElementById('dp-issue-text').textContent = issue.text;
+
+  const log = issue.policyLog || [];
+  const listEl = document.getElementById('dp-log-list');
+  if (log.length === 0) {
+    listEl.innerHTML = '<div class="dp-empty">対応方針がまだ登録されていません</div>';
+  } else {
+    listEl.innerHTML = [...log].reverse().map((entry, ri) => {
+      const idx = log.length - 1 - ri;
+      return `<div class="dp-entry">
+        <div class="dp-entry-date">${entry.date || '日付なし'}</div>
+        <div class="dp-entry-text">${escHtml(entry.text)}</div>
+        <button class="dp-entry-del" onclick="deletePolicyEntry(${idx})" title="削除">✕</button>
+      </div>`;
+    }).join('');
+  }
+}
+
+function savePolicyEntry() {
+  const text = document.getElementById('dp-add-text').value.trim();
+  if (!text) return;
+  const issue = issues.find(i => i.id === _dpIid);
+  if (!issue) return;
+  if (!Array.isArray(issue.policyLog)) issue.policyLog = [];
+  const now = new Date();
+  const date = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  issue.policyLog.push({ text, date });
+  saveIssues();
+  document.getElementById('dp-add-text').value = '';
+  renderDetailPanel();
+}
+
+function deletePolicyEntry(idx) {
+  const issue = issues.find(i => i.id === _dpIid);
+  if (!issue || !issue.policyLog) return;
+  issue.policyLog.splice(idx, 1);
+  saveIssues();
+  renderDetailPanel();
+}
+
 // ── CONFIRM DIALOG ────────────────────────────────────────────
 let _confirmCb = null;
 function showConfirm(msg, onYes) {
@@ -1111,12 +1275,12 @@ function renderIssueTable() {
     const timing = issue.timing || getTimingFromCell(issue.cell);
     const dept   = issue.dept   || getDeptFromCell(issue.cell);
     const isDone = issue.status === 'done';
-    html += `<tr data-iid="${issue.id}" class="${isDone?'status-done':''}">
+    html += `<tr data-iid="${issue.id}" class="${isDone?'status-done':''}" onclick="openDetailPanel(${issue.id})">
       <td class="fc fc-0">${escHtml(timing)}</td>
       <td class="fc fc-1">${escHtml(dept)}</td>
       <td class="fc fc-2"><span class="cat-badge ${cat.badgeClass}">${cat.label}</span></td>
       <td class="col-detail">${isDone?`<s>${escHtml(issue.text)}</s>`:escHtml(issue.text)}</td>
-      <td><select class="mgmt-sel" data-iid="${issue.id}" onchange="updateStatus(this.dataset.iid,this.value)">
+      <td onclick="event.stopPropagation()"><select class="mgmt-sel" data-iid="${issue.id}" onchange="updateStatus(this.dataset.iid,this.value)">
         <option value="open"     ${issue.status==='open'    ?'selected':''}>未着手</option>
         <option value="progress" ${issue.status==='progress'?'selected':''}>進行中</option>
         <option value="done"     ${issue.status==='done'    ?'selected':''}>完了</option>
