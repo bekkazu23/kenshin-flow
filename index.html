@@ -209,20 +209,15 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
 }
 .mgmt-table {
   width: 100%; border-collapse: collapse; background: white;
-  min-width: 1200px; table-layout: fixed;
+  min-width: 930px; table-layout: fixed;
 }
 
 /* Column widths via colgroup */
-.mgmt-table .cw-no   { width: 46px;  }
-.mgmt-table .cw-tim  { width: 82px;  }  /* 健診当日で改行しない最小幅 */
-.mgmt-table .cw-dep  { width: 76px;  }  /* 放射線科で改行しない最小幅 */
-.mgmt-table .cw-cat  { width: 86px;  }  /* 業務フローで改行しない最小幅 */
-.mgmt-table .cw-det  { width: 308px; }  /* 課題詳細（拡大） */
-.mgmt-table .cw-pol  { width: 226px; }  /* 対応方針（拡大） */
-.mgmt-table .cw-asgn { width: 112px; }
-.mgmt-table .cw-st   { width: 108px; }
-.mgmt-table .cw-memo { width: 148px; }
-.mgmt-table .cw-ops  { width: 66px;  }
+.mgmt-table .cw-tim  { width: 90px;  }
+.mgmt-table .cw-dep  { width: 90px;  }
+.mgmt-table .cw-cat  { width: 110px; }
+.mgmt-table .cw-det  { width: 520px; }
+.mgmt-table .cw-st   { width: 120px; }
 
 /* Sticky header */
 .mgmt-table thead th {
@@ -251,11 +246,10 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
 .mgmt-table th.fc, .mgmt-table td.fc { position: sticky; z-index: 2; }
 .mgmt-table thead th.fc { z-index: 5; }
 .fc-0 { left: 0px;   }
-.fc-1 { left: 46px;  }
-.fc-2 { left: 128px; }
-.fc-3 { left: 204px; }
+.fc-1 { left: 90px;  }
+.fc-2 { left: 180px; }
 /* Visual separator after frozen area */
-.mgmt-table th.fc-3, .mgmt-table td.fc-3 {
+.mgmt-table th.fc-2, .mgmt-table td.fc-2 {
   box-shadow: 4px 0 8px -2px rgba(140,58,82,0.18);
 }
 /* Frozen cell backgrounds (must be explicit for sticky to work over scrolled content) */
@@ -904,7 +898,7 @@ function getProcs(tabId, laneId, phaseId) {
 }
 
 // ── FILTERS ──────────────────────────────────────────────────
-let filters = { timing:'', dept:'', cat:'', detail:'', policy:'', assignee:'', status:'' };
+let filters = { timing:'', dept:'', cat:'', detail:'', status:'' };
 
 function setFilter(key, value) { filters[key] = value; applyFilters(); }
 
@@ -920,15 +914,12 @@ function applyFilters() {
     if (filters.cat      && issue.cat    !== filters.cat)                  show = false;
     if (filters.status   && issue.status !== filters.status)               show = false;
     if (filters.detail   && !issue.text.includes(filters.detail))          show = false;
-    if (filters.policy   && !(issue.policy  ||'').includes(filters.policy)) show = false;
-    if (filters.assignee && !(issue.assignee||'').includes(filters.assignee)) show = false;
     row.style.display = show ? '' : 'none';
   });
 }
 
 function restoreFilters() {
-  const map = { timing:'ft-tim', dept:'ft-dep', cat:'ft-cat',
-    detail:'ft-det', policy:'ft-pol', assignee:'ft-asgn', status:'ft-st' };
+  const map = { timing:'ft-tim', dept:'ft-dep', cat:'ft-cat', detail:'ft-det', status:'ft-st' };
   Object.entries(map).forEach(([k, id]) => {
     const el = document.getElementById(id);
     if (el) el.value = filters[k] || '';
@@ -1088,21 +1079,19 @@ function renderIssueTable() {
   </div>
   <div class="table-wrap"><table class="mgmt-table">
   <colgroup>
-    <col class="cw-no"><col class="cw-tim"><col class="cw-dep"><col class="cw-cat">
-    <col class="cw-det"><col class="cw-pol"><col class="cw-asgn">
-    <col class="cw-st"><col class="cw-memo"><col class="cw-ops">
+    <col class="cw-tim"><col class="cw-dep"><col class="cw-cat">
+    <col class="cw-det"><col class="cw-st">
   </colgroup>
   <thead><tr>
-    <th class="fc fc-0"><div class="th-inner"><span class="th-title">No</span></div></th>
-    <th class="fc fc-1"><div class="th-inner">
+    <th class="fc fc-0"><div class="th-inner">
       <span class="th-title">タイミング</span>
       <select class="filter-sel" id="ft-tim" onchange="setFilter('timing',this.value)"><option value="">すべて</option>${timOpts}</select>
     </div></th>
-    <th class="fc fc-2"><div class="th-inner">
+    <th class="fc fc-1"><div class="th-inner">
       <span class="th-title">部署</span>
       <select class="filter-sel" id="ft-dep" onchange="setFilter('dept',this.value)"><option value="">すべて</option>${depOpts}</select>
     </div></th>
-    <th class="fc fc-3"><div class="th-inner">
+    <th class="fc fc-2"><div class="th-inner">
       <span class="th-title">課題</span>
       <select class="filter-sel" id="ft-cat" onchange="setFilter('cat',this.value)"><option value="">すべて</option>${catOpts}</select>
     </div></th>
@@ -1111,19 +1100,9 @@ function renderIssueTable() {
       <input class="filter-inp" id="ft-det" type="text" placeholder="🔍 絞り込み" oninput="setFilter('detail',this.value)">
     </div></th>
     <th><div class="th-inner">
-      <span class="th-title">対応方針</span>
-      <input class="filter-inp" id="ft-pol" type="text" placeholder="🔍 絞り込み" oninput="setFilter('policy',this.value)">
-    </div></th>
-    <th><div class="th-inner">
-      <span class="th-title">対応責任者</span>
-      <input class="filter-inp" id="ft-asgn" type="text" placeholder="🔍 絞り込み" oninput="setFilter('assignee',this.value)">
-    </div></th>
-    <th><div class="th-inner">
       <span class="th-title">進捗</span>
       <select class="filter-sel" id="ft-st" onchange="setFilter('status',this.value)"><option value="">すべて</option>${stOpts}</select>
     </div></th>
-    <th><div class="th-inner"><span class="th-title">備考</span></div></th>
-    <th><div class="th-inner"><span class="th-title"></span></div></th>
   </tr></thead>
   <tbody>`;
 
@@ -1133,26 +1112,15 @@ function renderIssueTable() {
     const dept   = issue.dept   || getDeptFromCell(issue.cell);
     const isDone = issue.status === 'done';
     html += `<tr data-iid="${issue.id}" class="${isDone?'status-done':''}">
-      <td class="col-no fc fc-0">${idx+1}</td>
-      <td class="fc fc-1">${escHtml(timing)}</td>
-      <td class="fc fc-2">${escHtml(dept)}</td>
-      <td class="fc fc-3"><span class="cat-badge ${cat.badgeClass}">${cat.label}</span></td>
+      <td class="fc fc-0">${escHtml(timing)}</td>
+      <td class="fc fc-1">${escHtml(dept)}</td>
+      <td class="fc fc-2"><span class="cat-badge ${cat.badgeClass}">${cat.label}</span></td>
       <td class="col-detail">${isDone?`<s>${escHtml(issue.text)}</s>`:escHtml(issue.text)}</td>
-      <td><input class="mgmt-inp" type="text" value="${escHtml(issue.policy||'')}"
-          data-iid="${issue.id}" onblur="updateField(this.dataset.iid,'policy',this.value)" placeholder="対応方針..."></td>
-      <td><input class="mgmt-inp" type="text" value="${escHtml(issue.assignee||'')}"
-          data-iid="${issue.id}" onblur="updateField(this.dataset.iid,'assignee',this.value)" placeholder="担当者名..."></td>
       <td><select class="mgmt-sel" data-iid="${issue.id}" onchange="updateStatus(this.dataset.iid,this.value)">
         <option value="open"     ${issue.status==='open'    ?'selected':''}>未着手</option>
         <option value="progress" ${issue.status==='progress'?'selected':''}>進行中</option>
         <option value="done"     ${issue.status==='done'    ?'selected':''}>完了</option>
       </select></td>
-      <td><input class="mgmt-inp" type="text" value="${escHtml(issue.memo||'')}"
-          data-iid="${issue.id}" onblur="updateField(this.dataset.iid,'memo',this.value)" placeholder="メモ..."></td>
-      <td class="col-ops">
-        <button class="mgmt-edit-btn" data-iid="${issue.id}" onclick="openMgmtEdit(this.dataset.iid)">✏️</button>
-        <button class="mgmt-del-btn"  data-iid="${issue.id}" onclick="deleteMgmtRow(this.dataset.iid)">🗑️</button>
-      </td>
     </tr>`;
   });
   html += `</tbody></table></div>`;
