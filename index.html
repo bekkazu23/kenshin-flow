@@ -679,15 +679,6 @@ function getDeptFromCell(cell) {
   if (!cell) return '';
   return LANE_TO_DEPT[cell.split('-')[1]] || '';
 }
-function getLaneLabelFromCell(cell) {
-  if (!cell) return '';
-  const [tabId, laneId] = cell.split('-');
-  const tab = TABS.find(t => t.id === parseInt(tabId));
-  if (!tab) return '';
-  const lane = tab.lanes.find(l => l.id === laneId);
-  return lane ? lane.label : '';
-}
-const GYOUMU_LIST = [...new Set(TABS.flatMap(t => t.lanes.map(l => l.label)))];
 function getTimingFromCell(cell) {
   if (!cell) return '';
   return TIMING_LIST[parseInt(cell.split('-')[0])] || '';
@@ -792,6 +783,17 @@ const TABS = [
     }
   }
 ];
+
+// TABSに依存する関数・定数（TABS定義の後に配置）
+function getLaneLabelFromCell(cell) {
+  if (!cell) return '';
+  const [tabId, laneId] = cell.split('-');
+  const tab = TABS.find(t => t.id === parseInt(tabId));
+  if (!tab) return '';
+  const lane = tab.lanes.find(l => l.id === laneId);
+  return lane ? lane.label : '';
+}
+const GYOUMU_LIST = [...new Set(TABS.flatMap(t => t.lanes.map(l => l.label)))];
 
 // ── SAMPLE ISSUES ────────────────────────────────────────────
 const SAMPLE_ISSUES = [
