@@ -804,7 +804,15 @@ function getLaneLabelFromCell(cell) {
   const lane = tab.lanes.find(l => l.id === laneId);
   return lane ? lane.label : '';
 }
-const GYOUMU_LIST = [...new Set(TABS.flatMap(t => t.lanes.map(l => l.label)))];
+function getPhaseLabel(cell) {
+  if (!cell) return '';
+  const [tabId, , phaseId] = cell.split('-');
+  const tab = TABS.find(t => t.id === parseInt(tabId));
+  if (!tab) return '';
+  const phase = tab.phases.find(p => p.id === phaseId);
+  return phase ? phase.label.replace(/\n/g, '') : '';
+}
+const GYOUMU_LIST = [...new Set(TABS.flatMap(t => t.phases.map(p => p.label.replace(/\n/g,''))))];
 
 // ── SAMPLE ISSUES ────────────────────────────────────────────
 const SAMPLE_ISSUES = [
@@ -1038,7 +1046,7 @@ function applyFilters() {
     const timing = issue.timing || getTimingFromCell(issue.cell);
     const dept   = issue.dept   || getDeptFromCell(issue.cell);
     let show = true;
-    const gyoumu = getLaneLabelFromCell(issue.cell);
+    const gyoumu = getPhaseLabel(issue.cell);
     if (filters.timing   && timing              !== filters.timing)        show = false;
     if (filters.gyoumu   && gyoumu             !== filters.gyoumu)        show = false;
     if (filters.dept     && issue.dept         !== filters.dept)          show = false;
@@ -1311,7 +1319,7 @@ function renderIssueTable() {
   issues.forEach((issue, idx) => {
     const cat    = CATS[issue.cat] || CATS.lang;
     const timing = issue.timing || getTimingFromCell(issue.cell);
-    const gyoumu = getLaneLabelFromCell(issue.cell);
+    const gyoumu = getPhaseLabel(issue.cell);
     const isDone = issue.status === 'done';
     html += `<tr data-iid="${issue.id}" class="${isDone?'status-done':''}" onclick="openDetailPanel(${issue.id})">
       <td class="fc fc-0">${escHtml(timing)}</td>
