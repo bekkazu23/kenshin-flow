@@ -976,28 +976,36 @@ function resolveConflict(choice) {
 
 // 起動時データ読み込み
 async function initData() {
+  const hideLoading = () => document.getElementById('loading-overlay').classList.add('hidden');
+
   if (!API_URL) {
     _loadCache();
     document.getElementById('api-error').classList.add('show');
-    document.getElementById('loading-overlay').classList.add('hidden');
+    hideLoading();
     return;
   }
+
+  // 8秒でタイムアウト（APIが応答しない場合のフォールバック）
+  const controller = new AbortController();
+  const timeoutId  = setTimeout(() => controller.abort(), 8000);
+
   try {
-    const res  = await fetch(API_URL);
+    const res  = await fetch(API_URL, { signal: controller.signal });
+    clearTimeout(timeoutId);
     const data = await res.json();
     issues      = migrateIssues(data.issues      || []);
     customProcs = data.customProcs || {};
-    // サーバーにデータがなければサンプルを使用
     if (issues.length === 0) issues = JSON.parse(JSON.stringify(SAMPLE_ISSUES));
     nextId = issues.length ? Math.max(...issues.map(i => i.id)) + 1 : 1;
-    _syncedSnapshot = JSON.stringify(issues); // 競合検知用スナップショット
+    _syncedSnapshot = JSON.stringify(issues);
     _cacheIssues(); _cacheProcs();
   } catch (e) {
+    clearTimeout(timeoutId);
     _loadCache();
     document.getElementById('api-error').classList.add('show');
   }
-  document.getElementById('loading-overlay').classList.add('hidden');
-  setInterval(pollServer, POLL_MS); // 自動ポーリング開始
+  hideLoading();
+  setInterval(pollServer, POLL_MS);
 }
 
 function getProcs(tabId, laneId, phaseId) {
