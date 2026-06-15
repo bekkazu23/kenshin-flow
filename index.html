@@ -475,6 +475,17 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
   <div class="spinner"></div>
   <div>データを読み込み中...</div>
 </div>
+<!-- 緊急フォールバック: メインJSに問題が起きてもローディングを解除 -->
+<script>
+  setTimeout(function() {
+    var el = document.getElementById('loading-overlay');
+    if (el && !el.classList.contains('hidden')) {
+      el.classList.add('hidden');
+      var err = document.getElementById('api-error');
+      if (err) err.classList.add('show');
+    }
+  }, 6000);
+</script>
 
 <!-- API接続エラーバナー -->
 <div id="api-error">
