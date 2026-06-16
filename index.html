@@ -85,7 +85,13 @@ header p  { font-size: 0.8rem; opacity: 0.82; margin-top: 3px; }
 }
 .lane-label .lane-icon { font-size: 1.15rem; display: block; margin-bottom: 4px; }
 /* process-box drag */
-.process-box { cursor: grab; }
+.process-box { cursor: default; }
+.proc-grab {
+  display: inline-block; margin-right: 5px; cursor: grab;
+  color: rgba(100,60,70,0.35); font-size: 0.85rem; user-select: none;
+  pointer-events: none; /* ドラッグは process-box 側で受け取る */
+}
+.proc-label { pointer-events: none; } /* テキスト部分はイベントを親へ透過 */
 .process-box.dragging { opacity: 0.35; outline: 2px dashed rgba(100,60,70,0.4); }
 .process-box.drag-over { outline: 2px solid #6aaf8a; background-color: #efffef !important; }
 
@@ -943,26 +949,36 @@ let _dragProc = null; // { key, idx }
 function procDragStart(e, key, idx) {
   _dragProc = { key, idx };
   e.dataTransfer.effectAllowed = 'move';
-  e.currentTarget.classList.add('dragging');
+  e.dataTransfer.setData('text/plain', key + ':' + idx); // Firefox 対応
+  setTimeout(() => e.currentTarget.classList.add('dragging'), 0);
+}
+function procDragEnter(e, key, idx) {
+  if (!_dragProc || _dragProc.key !== key || _dragProc.idx === idx) return;
+  e.preventDefault();
+  e.currentTarget.classList.add('drag-over');
 }
 function procDragOver(e, key, idx) {
   if (!_dragProc || _dragProc.key !== key || _dragProc.idx === idx) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = 'move';
-  e.currentTarget.classList.add('drag-over');
 }
 function procDragLeave(e) {
+  // 子要素への移動では発火しない（relatedTarget が自分の子なら無視）
+  if (e.currentTarget.contains(e.relatedTarget)) return;
   e.currentTarget.classList.remove('drag-over');
 }
 function procDrop(e, key, toIdx) {
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
   if (!_dragProc || _dragProc.key !== key) return;
-  moveProc(key, _dragProc.idx, toIdx);
+  const fromIdx = _dragProc.idx;
   _dragProc = null;
+  moveProc(key, fromIdx, toIdx);
 }
 function procDragEnd(e) {
-  e.currentTarget.classList.remove('dragging');
+  // ドラッグ終了時に全 drag-over / dragging をクリア
+  document.querySelectorAll('.process-box.drag-over').forEach(el => el.classList.remove('drag-over'));
+  document.querySelectorAll('.process-box.dragging').forEach(el => el.classList.remove('dragging'));
   _dragProc = null;
 }
 
@@ -1446,12 +1462,14 @@ function renderTab(tabIdx) {
           if (idx > 0 && showArrow) html += `<div class="proc-arrow">↓</div>`;
           html += `<div class="process-box proc-${pi}" draggable="true"
             ondragstart="procDragStart(event,'${key}',${idx})"
+            ondragenter="procDragEnter(event,'${key}',${idx})"
             ondragover="procDragOver(event,'${key}',${idx})"
             ondragleave="procDragLeave(event)"
             ondrop="procDrop(event,'${key}',${idx})"
             ondragend="procDragEnd(event)">
-            ${escHtml(p)}
-            <button class="proc-del-btn" data-cell="${key}" data-idx="${idx}" data-text="${escHtml(p)}" onclick="deleteProcFromBtn(this)">✕</button>
+            <span class="proc-grab">⠿</span><span class="proc-label">${escHtml(p)}</span>
+            <button class="proc-del-btn" data-cell="${key}" data-idx="${idx}" data-text="${escHtml(p)}"
+              ondragstart="event.stopPropagation()" onclick="deleteProcFromBtn(this)">✕</button>
           </div>`;
           cellIssues.filter(i => i.procIdx === idx).forEach(issue => { html += renderChip(issue); });
           html += `<button class="add-issue-btn" data-cell="${key}" data-ctx="${ctxSafe}" data-pidx="${idx}" onclick="openNewFromBtn(this)">＋ 課題を追加</button>`;
