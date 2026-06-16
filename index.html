@@ -84,18 +84,10 @@ header p  { font-size: 0.8rem; opacity: 0.82; margin-top: 3px; }
   width: 90px; min-width: 90px; line-height: 1.6; letter-spacing: 0.04em;
 }
 .lane-label .lane-icon { font-size: 1.15rem; display: block; margin-bottom: 4px; }
-.lane-order-btns {
-  display: none; flex-direction: row; justify-content: center; gap: 3px; margin-top: 6px;
-}
-body.proc-mode .lane-order-btns { display: flex; }
-.lane-order-btn {
-  background: rgba(255,255,255,0.22); border: none; color: white;
-  border-radius: 4px; font-size: 0.7rem; cursor: pointer;
-  padding: 2px 6px; line-height: 1.4; font-family: inherit;
-  transition: background 0.12s;
-}
-.lane-order-btn:hover { background: rgba(255,255,255,0.45); }
-.lane-order-btn:disabled { opacity: 0.25; cursor: default; }
+/* process-box drag */
+.process-box { cursor: grab; }
+.process-box.dragging { opacity: 0.35; outline: 2px dashed rgba(100,60,70,0.4); }
+.process-box.drag-over { outline: 2px solid #6aaf8a; background-color: #efffef !important; }
 
 /* ── LANE COLORS（セル・プロセスボックス・空きエリアを部門色で統一） ── */
 .lane-row[data-lc="0"] td,
@@ -944,27 +936,63 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbynAffDP85DTuyqqB6aTxx6
 let issues      = [];
 let nextId      = 1;
 let customProcs = {};
-let laneOrder   = {};  // { tabId: [laneId, ...] }
 
-function getOrderedLanes(tabId) {
-  const tab   = TABS.find(t => t.id === tabId);
-  if (!tab) return [];
-  const order = laneOrder[tabId];
-  if (!order || order.length === 0) return tab.lanes;
-  return order.map(id => tab.lanes.find(l => l.id === id)).filter(Boolean);
+// ── プロセス項目ドラッグ並び替え ──────────────────────────────
+let _dragProc = null; // { key, idx }
+
+function procDragStart(e, key, idx) {
+  _dragProc = { key, idx };
+  e.dataTransfer.effectAllowed = 'move';
+  e.currentTarget.classList.add('dragging');
+}
+function procDragOver(e, key, idx) {
+  if (!_dragProc || _dragProc.key !== key || _dragProc.idx === idx) return;
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  e.currentTarget.classList.add('drag-over');
+}
+function procDragLeave(e) {
+  e.currentTarget.classList.remove('drag-over');
+}
+function procDrop(e, key, toIdx) {
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if (!_dragProc || _dragProc.key !== key) return;
+  moveProc(key, _dragProc.idx, toIdx);
+  _dragProc = null;
+}
+function procDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  _dragProc = null;
 }
 
-function moveLane(tabId, laneId, dir) {
-  const lanes = getOrderedLanes(tabId);
-  const ids   = lanes.map(l => l.id);
-  const idx   = ids.indexOf(laneId);
-  if (idx < 0) return;
-  const newIdx = idx + dir;
-  if (newIdx < 0 || newIdx >= ids.length) return;
-  [ids[idx], ids[newIdx]] = [ids[newIdx], ids[idx]];
-  laneOrder[tabId] = ids;
-  customProcs.__laneOrder__ = laneOrder;
+function moveProc(key, fromIdx, toIdx) {
+  if (fromIdx === toIdx) return;
+  const parts   = key.split('-');
+  const tabId   = parseInt(parts[0]);
+  const laneId  = parts[1];
+  const phaseId = parts[2];
+  const tab     = TABS.find(t => t.id === tabId);
+  if (!tab) return;
+
+  if (!(key in customProcs)) {
+    customProcs[key] = [...(tab.processes[`${laneId}-${phaseId}`] || [])];
+  }
+  const procs = customProcs[key];
+  const [item] = procs.splice(fromIdx, 1);
+  procs.splice(toIdx, 0, item);
+
+  // procIdx の更新
+  issues.forEach(i => {
+    if (i.cell !== key || i.procIdx == null) return;
+    const old = i.procIdx;
+    if (old === fromIdx)                              { i.procIdx = toIdx; return; }
+    if (fromIdx < toIdx && old > fromIdx && old <= toIdx) i.procIdx = old - 1;
+    if (fromIdx > toIdx && old >= toIdx && old < fromIdx) i.procIdx = old + 1;
+  });
+
   saveCustomProcs();
+  saveIssues();
   rendered.delete(`tab-${tabId}`);
   renderTab(tabId);
 }
@@ -976,7 +1004,6 @@ function _loadCache() {
   const s = localStorage.getItem('kenshin_v3_issues');
   issues      = s ? migrateIssues(JSON.parse(s)) : JSON.parse(JSON.stringify(SAMPLE_ISSUES));
   customProcs = JSON.parse(localStorage.getItem('kenshin_v3_procs') || '{}');
-  laneOrder   = customProcs.__laneOrder__ || {};
   nextId      = issues.length ? Math.max(...issues.map(i => i.id)) + 1 : 1;
 }
 
@@ -1052,7 +1079,6 @@ async function pollServer() {
 function _applyServerData(serverIssues, serverProcs, serverJson) {
   issues      = serverIssues;
   customProcs = serverProcs;
-  laneOrder   = customProcs.__laneOrder__ || {};
   nextId      = issues.length ? Math.max(...issues.map(i => i.id)) + 1 : 1;
   _syncedSnapshot = serverJson || JSON.stringify(serverIssues);
   _cacheIssues(); _cacheProcs();
@@ -1123,7 +1149,6 @@ async function initData() {
     const data = await res.json();
     issues      = migrateIssues(data.issues      || []);
     customProcs = data.customProcs || {};
-    laneOrder   = customProcs.__laneOrder__ || {};
     if (issues.length === 0) issues = JSON.parse(JSON.stringify(SAMPLE_ISSUES));
     nextId = issues.length ? Math.max(...issues.map(i => i.id)) + 1 : 1;
     _syncedSnapshot = JSON.stringify(issues);
@@ -1397,18 +1422,9 @@ function renderTab(tabIdx) {
   });
   html += `</tr></thead><tbody>`;
 
-  const orderedLanes = getOrderedLanes(tab.id);
-  orderedLanes.forEach((lane, laneIdx) => {
-    const isFirst = laneIdx === 0;
-    const isLast  = laneIdx === orderedLanes.length - 1;
+  tab.lanes.forEach((lane, laneIdx) => {
     html += `<tr class="lane-row" data-lc="${laneIdx}">
-      <td class="lane-label">
-        <span class="lane-icon">${lane.icon}</span>${lane.label.replace(/\n/g,'<br>')}
-        <div class="lane-order-btns">
-          <button class="lane-order-btn" onclick="moveLane(${tab.id},'${lane.id}',-1)" ${isFirst?'disabled':''}>▲</button>
-          <button class="lane-order-btn" onclick="moveLane(${tab.id},'${lane.id}',1)"  ${isLast ?'disabled':''}>▼</button>
-        </div>
-      </td>`;
+      <td class="lane-label"><span class="lane-icon">${lane.icon}</span>${lane.label.replace(/\n/g,'<br>')}</td>`;
     tab.phases.forEach((ph, pi) => {
       const key        = `${tab.id}-${lane.id}-${ph.id}`;
       const procs      = getProcs(tab.id, lane.id, ph.id);
@@ -1428,7 +1444,12 @@ function renderTab(tabIdx) {
       } else {
         procs.forEach((p, idx) => {
           if (idx > 0 && showArrow) html += `<div class="proc-arrow">↓</div>`;
-          html += `<div class="process-box proc-${pi}">
+          html += `<div class="process-box proc-${pi}" draggable="true"
+            ondragstart="procDragStart(event,'${key}',${idx})"
+            ondragover="procDragOver(event,'${key}',${idx})"
+            ondragleave="procDragLeave(event)"
+            ondrop="procDrop(event,'${key}',${idx})"
+            ondragend="procDragEnd(event)">
             ${escHtml(p)}
             <button class="proc-del-btn" data-cell="${key}" data-idx="${idx}" data-text="${escHtml(p)}" onclick="deleteProcFromBtn(this)">✕</button>
           </div>`;
