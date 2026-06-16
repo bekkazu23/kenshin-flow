@@ -84,6 +84,18 @@ header p  { font-size: 0.8rem; opacity: 0.82; margin-top: 3px; }
   width: 90px; min-width: 90px; line-height: 1.6; letter-spacing: 0.04em;
 }
 .lane-label .lane-icon { font-size: 1.15rem; display: block; margin-bottom: 4px; }
+.lane-order-btns {
+  display: none; flex-direction: row; justify-content: center; gap: 3px; margin-top: 6px;
+}
+body.proc-mode .lane-order-btns { display: flex; }
+.lane-order-btn {
+  background: rgba(255,255,255,0.22); border: none; color: white;
+  border-radius: 4px; font-size: 0.7rem; cursor: pointer;
+  padding: 2px 6px; line-height: 1.4; font-family: inherit;
+  transition: background 0.12s;
+}
+.lane-order-btn:hover { background: rgba(255,255,255,0.45); }
+.lane-order-btn:disabled { opacity: 0.25; cursor: default; }
 
 /* ── LANE COLORS（セル・プロセスボックス・空きエリアを部門色で統一） ── */
 .lane-row[data-lc="0"] td,
@@ -932,6 +944,30 @@ const API_URL = 'https://script.google.com/macros/s/AKfycbynAffDP85DTuyqqB6aTxx6
 let issues      = [];
 let nextId      = 1;
 let customProcs = {};
+let laneOrder   = {};  // { tabId: [laneId, ...] }
+
+function getOrderedLanes(tabId) {
+  const tab   = TABS.find(t => t.id === tabId);
+  if (!tab) return [];
+  const order = laneOrder[tabId];
+  if (!order || order.length === 0) return tab.lanes;
+  return order.map(id => tab.lanes.find(l => l.id === id)).filter(Boolean);
+}
+
+function moveLane(tabId, laneId, dir) {
+  const lanes = getOrderedLanes(tabId);
+  const ids   = lanes.map(l => l.id);
+  const idx   = ids.indexOf(laneId);
+  if (idx < 0) return;
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= ids.length) return;
+  [ids[idx], ids[newIdx]] = [ids[newIdx], ids[idx]];
+  laneOrder[tabId] = ids;
+  customProcs.__laneOrder__ = laneOrder;
+  saveCustomProcs();
+  rendered.delete(`tab-${tabId}`);
+  renderTab(tabId);
+}
 
 // ローカルキャッシュ（オフライン時フォールバック）
 function _cacheIssues()  { localStorage.setItem('kenshin_v3_issues', JSON.stringify(issues)); }
@@ -940,6 +976,7 @@ function _loadCache() {
   const s = localStorage.getItem('kenshin_v3_issues');
   issues      = s ? migrateIssues(JSON.parse(s)) : JSON.parse(JSON.stringify(SAMPLE_ISSUES));
   customProcs = JSON.parse(localStorage.getItem('kenshin_v3_procs') || '{}');
+  laneOrder   = customProcs.__laneOrder__ || {};
   nextId      = issues.length ? Math.max(...issues.map(i => i.id)) + 1 : 1;
 }
 
@@ -1015,6 +1052,7 @@ async function pollServer() {
 function _applyServerData(serverIssues, serverProcs, serverJson) {
   issues      = serverIssues;
   customProcs = serverProcs;
+  laneOrder   = customProcs.__laneOrder__ || {};
   nextId      = issues.length ? Math.max(...issues.map(i => i.id)) + 1 : 1;
   _syncedSnapshot = serverJson || JSON.stringify(serverIssues);
   _cacheIssues(); _cacheProcs();
@@ -1085,6 +1123,7 @@ async function initData() {
     const data = await res.json();
     issues      = migrateIssues(data.issues      || []);
     customProcs = data.customProcs || {};
+    laneOrder   = customProcs.__laneOrder__ || {};
     if (issues.length === 0) issues = JSON.parse(JSON.stringify(SAMPLE_ISSUES));
     nextId = issues.length ? Math.max(...issues.map(i => i.id)) + 1 : 1;
     _syncedSnapshot = JSON.stringify(issues);
@@ -1358,9 +1397,18 @@ function renderTab(tabIdx) {
   });
   html += `</tr></thead><tbody>`;
 
-  tab.lanes.forEach((lane, laneIdx) => {
+  const orderedLanes = getOrderedLanes(tab.id);
+  orderedLanes.forEach((lane, laneIdx) => {
+    const isFirst = laneIdx === 0;
+    const isLast  = laneIdx === orderedLanes.length - 1;
     html += `<tr class="lane-row" data-lc="${laneIdx}">
-      <td class="lane-label"><span class="lane-icon">${lane.icon}</span>${lane.label.replace(/\n/g,'<br>')}</td>`;
+      <td class="lane-label">
+        <span class="lane-icon">${lane.icon}</span>${lane.label.replace(/\n/g,'<br>')}
+        <div class="lane-order-btns">
+          <button class="lane-order-btn" onclick="moveLane(${tab.id},'${lane.id}',-1)" ${isFirst?'disabled':''}>▲</button>
+          <button class="lane-order-btn" onclick="moveLane(${tab.id},'${lane.id}',1)"  ${isLast ?'disabled':''}>▼</button>
+        </div>
+      </td>`;
     tab.phases.forEach((ph, pi) => {
       const key        = `${tab.id}-${lane.id}-${ph.id}`;
       const procs      = getProcs(tab.id, lane.id, ph.id);
