@@ -225,16 +225,46 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
 }
 .mgmt-table {
   width: 100%; border-collapse: collapse; background: white;
-  min-width: 930px; table-layout: fixed; /* 90+100+110+110+400+120 */
+  min-width: 976px; table-layout: fixed; /* 90+100+100+96+360+130+100 */
 }
 
 /* Column widths via colgroup */
 .mgmt-table .cw-tim  { width: 90px;  }
 .mgmt-table .cw-gym  { width: 100px; }
-.mgmt-table .cw-dep  { width: 110px; }
-.mgmt-table .cw-cat  { width: 96px; }
-.mgmt-table .cw-det  { width: 400px; }
-.mgmt-table .cw-st   { width: 120px; }
+.mgmt-table .cw-rel  { width: 100px; }
+.mgmt-table .cw-cat  { width: 96px;  }
+.mgmt-table .cw-det  { width: 360px; }
+.mgmt-table .cw-dep  { width: 130px; }
+.mgmt-table .cw-st   { width: 100px; }
+
+/* 対応部署 多重選択ボタン */
+.dept-btn {
+  width: 100%; background: #fdf7f9; border: 1.5px solid #f0dde3;
+  border-radius: 7px; padding: 5px 8px; font-size: 0.82rem;
+  font-family: inherit; color: #3d2b35; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 4px;
+  text-align: left; min-height: 32px;
+}
+.dept-btn:hover { border-color: #c97080; }
+.dept-cell-val { flex: 1; line-height: 1.4; word-break: break-all; }
+/* 対応部署ピッカー */
+#dept-picker {
+  display: none; position: fixed; background: white;
+  border: 1.5px solid #f0dde3; border-radius: 10px; padding: 8px 6px 6px;
+  box-shadow: 0 6px 24px rgba(140,58,82,0.16); z-index: 600; min-width: 150px;
+}
+.dept-picker-item {
+  display: flex; align-items: center; gap: 7px; padding: 5px 8px;
+  cursor: pointer; font-size: 0.84rem; border-radius: 6px; user-select: none;
+}
+.dept-picker-item:hover { background: #fdf0f3; }
+.dept-picker-item input { cursor: pointer; accent-color: #c97080; }
+#dept-picker-close {
+  width: 100%; margin-top: 6px; padding: 5px; border: none;
+  background: #f8eef0; color: #8c3a52; font-size: 0.8rem;
+  border-radius: 6px; cursor: pointer; font-family: inherit; font-weight: 600;
+}
+#dept-picker-close:hover { background: #f0dde3; }
 
 /* Sticky header */
 .mgmt-table thead th {
@@ -535,6 +565,12 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
       <button class="btn-p" onclick="resolveConflict('server')">サーバーの内容を使用</button>
     </div>
   </div>
+</div>
+
+<!-- 対応部署 多重選択ピッカー -->
+<div id="dept-picker">
+  <div id="dept-picker-list"></div>
+  <button id="dept-picker-close" onclick="closeDeptPicker()">閉じる</button>
 </div>
 
 <!-- 対応方針スライドパネル -->
@@ -869,8 +905,9 @@ function migrateIssues(arr) {
     policy:   i.policy   || '',
     assignee: i.assignee || '',
     timing:   i.timing   || getTimingFromCell(i.cell),
-    dept:     getLaneLabelFromCell(i.cell) === '受診者' ? '' : (i.dept === '受診者' ? '' : (i.dept || getDeptFromCell(i.cell))),
-    procIdx:    i.procIdx  !== undefined ? i.procIdx : null,
+    dept:     '',
+    depts:    Array.isArray(i.depts) ? i.depts : [],
+    procIdx:  i.procIdx !== undefined ? i.procIdx : null,
     policyLog:  Array.isArray(i.policyLog) ? i.policyLog : (i.policy ? [{text: i.policy, date: ''}] : []),
   }));
 }
@@ -1055,7 +1092,7 @@ function getProcs(tabId, laneId, phaseId) {
 }
 
 // ── FILTERS ──────────────────────────────────────────────────
-let filters = { timing:'', gyoumu:'', dept:'', cat:'', detail:'', status:'' };
+let filters = { timing:'', gyoumu:'', cat:'', detail:'', status:'' };
 
 function setFilter(key, value) { filters[key] = value; applyFilters(); }
 
@@ -1069,7 +1106,6 @@ function applyFilters() {
     const gyoumu = getPhaseLabel(issue.cell);
     if (filters.timing   && timing              !== filters.timing)        show = false;
     if (filters.gyoumu   && gyoumu             !== filters.gyoumu)        show = false;
-    if (filters.dept     && issue.dept         !== filters.dept)          show = false;
     if (filters.cat      && issue.cat          !== filters.cat)           show = false;
     if (filters.status   && issue.status       !== filters.status)        show = false;
     if (filters.detail   && !issue.text.includes(filters.detail))         show = false;
@@ -1078,12 +1114,63 @@ function applyFilters() {
 }
 
 function restoreFilters() {
-  const map = { timing:'ft-tim', gyoumu:'ft-gym', dept:'ft-dep', cat:'ft-cat', detail:'ft-det', status:'ft-st' };
+  const map = { timing:'ft-tim', gyoumu:'ft-gym', cat:'ft-cat', detail:'ft-det', status:'ft-st' };
   Object.entries(map).forEach(([k, id]) => {
     const el = document.getElementById(id);
     if (el) el.value = filters[k] || '';
   });
 }
+
+// ── 対応部署 多重選択ピッカー ──────────────────────────────────
+let _dpickIid = null;
+
+function openDeptPicker(iid, el) {
+  _dpickIid = parseInt(iid);
+  const issue    = issues.find(i => i.id === _dpickIid);
+  const selected = issue ? (issue.depts || []) : [];
+  document.getElementById('dept-picker-list').innerHTML = DEPT_LIST.map(v =>
+    `<label class="dept-picker-item">
+      <input type="checkbox" value="${escHtml(v)}" ${selected.includes(v)?'checked':''}
+        onchange="toggleDept('${escHtml(v)}',this.checked,${iid})">
+      ${escHtml(v)}
+    </label>`
+  ).join('');
+  const picker = document.getElementById('dept-picker');
+  const rect   = el.getBoundingClientRect();
+  picker.style.display = 'block';
+  picker.style.top  = (rect.bottom + window.scrollY + 4) + 'px';
+  picker.style.left = rect.left + 'px';
+  setTimeout(() => {
+    const pr = picker.getBoundingClientRect();
+    if (pr.right  > window.innerWidth)  picker.style.left = (window.innerWidth  - pr.width  - 8) + 'px';
+    if (pr.bottom > window.innerHeight) picker.style.top  = (rect.top + window.scrollY - pr.height - 4) + 'px';
+  }, 0);
+}
+
+function closeDeptPicker() {
+  document.getElementById('dept-picker').style.display = 'none';
+  _dpickIid = null;
+}
+
+function toggleDept(val, checked, iid) {
+  const issue = issues.find(i => i.id === parseInt(iid));
+  if (!issue) return;
+  if (!Array.isArray(issue.depts)) issue.depts = [];
+  if (checked) { if (!issue.depts.includes(val)) issue.depts.push(val); }
+  else          { issue.depts = issue.depts.filter(v => v !== val); }
+  const valEl = document.querySelector(`tr[data-iid="${iid}"] .dept-cell-val`);
+  if (valEl) valEl.textContent = issue.depts.length ? issue.depts.join('、') : '―';
+  saveIssues();
+}
+
+document.addEventListener('click', e => {
+  const picker = document.getElementById('dept-picker');
+  if (picker && picker.style.display !== 'none'
+      && !picker.contains(e.target)
+      && !e.target.closest('.dept-btn')) {
+    closeDeptPicker();
+  }
+});
 
 // ── DETAIL SLIDE PANEL ───────────────────────────────────────
 let _dpIid = null;
@@ -1318,8 +1405,8 @@ function renderIssueTable() {
   </div>
   <div class="table-wrap"><table class="mgmt-table">
   <colgroup>
-    <col class="cw-tim"><col class="cw-gym"><col class="cw-dep">
-    <col class="cw-cat"><col class="cw-det"><col class="cw-st">
+    <col class="cw-tim"><col class="cw-gym"><col class="cw-rel">
+    <col class="cw-cat"><col class="cw-det"><col class="cw-dep"><col class="cw-st">
   </colgroup>
   <thead><tr>
     <th class="fc fc-0"><div class="th-inner">
@@ -1331,8 +1418,7 @@ function renderIssueTable() {
       <select class="filter-sel" id="ft-gym" onchange="setFilter('gyoumu',this.value)"><option value="">すべて</option>${gymOpts}</select>
     </div></th>
     <th class="fc fc-2"><div class="th-inner">
-      <span class="th-title">対応部署</span>
-      <select class="filter-sel" id="ft-dep" onchange="setFilter('dept',this.value)"><option value="">すべて</option>${depOpts}</select>
+      <span class="th-title">関係者・部署</span>
     </div></th>
     <th><div class="th-inner">
       <span class="th-title">課題項目</span>
@@ -1341,6 +1427,9 @@ function renderIssueTable() {
     <th><div class="th-inner">
       <span class="th-title">課題詳細</span>
       <input class="filter-inp" id="ft-det" type="text" placeholder="🔍 絞り込み" oninput="setFilter('detail',this.value)">
+    </div></th>
+    <th><div class="th-inner">
+      <span class="th-title">対応部署</span>
     </div></th>
     <th><div class="th-inner">
       <span class="th-title">進捗</span>
@@ -1354,17 +1443,18 @@ function renderIssueTable() {
     const timing = issue.timing || getTimingFromCell(issue.cell);
     const gyoumu = getPhaseLabel(issue.cell);
     const isDone = issue.status === 'done';
+    const deptsVal = (issue.depts||[]).length ? issue.depts.join('、') : '―';
     html += `<tr data-iid="${issue.id}" class="${isDone?'status-done':''}" onclick="openDetailPanel(${issue.id})">
       <td class="fc fc-0">${escHtml(timing)}</td>
       <td class="fc fc-1">${escHtml(gyoumu)}</td>
-      <td class="fc fc-2" onclick="event.stopPropagation()">
-        <select class="mgmt-sel" data-iid="${issue.id}" onchange="updateField(this.dataset.iid,'dept',this.value)">
-          <option value="">―</option>
-          ${DEPT_LIST.map(v=>`<option value="${v}" ${issue.dept===v?'selected':''}>${v}</option>`).join('')}
-        </select>
-      </td>
+      <td class="fc fc-2">${escHtml(getLaneLabelFromCell(issue.cell))}</td>
       <td><span class="cat-badge ${cat.badgeClass}">${cat.label}</span></td>
       <td class="col-detail">${isDone?`<s>${escHtml(issue.text)}</s>`:escHtml(issue.text)}</td>
+      <td onclick="event.stopPropagation()">
+        <button class="dept-btn" onclick="openDeptPicker(${issue.id},this)">
+          <span class="dept-cell-val">${escHtml(deptsVal)}</span><span style="font-size:0.7rem;opacity:0.5;flex-shrink:0">▼</span>
+        </button>
+      </td>
       <td onclick="event.stopPropagation()"><select class="mgmt-sel" data-iid="${issue.id}" onchange="updateStatus(this.dataset.iid,this.value)">
         <option value="open"     ${issue.status==='open'    ?'selected':''}>未着手</option>
         <option value="progress" ${issue.status==='progress'?'selected':''}>進行中</option>
