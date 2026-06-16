@@ -197,9 +197,23 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
 /* ── MGMT TABLE ─────────────────────────── */
 .mgmt-header {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 12px; flex-wrap: wrap; gap: 10px;
+  margin-bottom: 8px; flex-wrap: wrap; gap: 10px;
 }
 .mgmt-header h2 { font-size: 1.05rem; font-weight: 700; color: #5a2a3a; }
+.mgmt-summary {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: white; border: 1px solid #f0dde3; border-radius: 10px;
+  padding: 8px 16px; margin-bottom: 12px; font-size: 0.85rem; color: #5a2a3a;
+}
+.mgmt-summary .sum-total { font-weight: 700; color: #5a2a3a; }
+.mgmt-summary .sum-sep { color: #d8c0c8; }
+.sum-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-weight: 600; padding: 2px 10px; border-radius: 20px; font-size: 0.82rem;
+}
+.sum-open     { background: #fef3e8; color: #b07030; }
+.sum-progress { background: #e8f4ff; color: #3070b0; }
+.sum-done     { background: #edf7ef; color: #3a8a4a; }
 
 .table-wrap {
   overflow-x: auto;
@@ -680,7 +694,7 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
 // CONSTANTS
 // ============================================================
 const TIMING_LIST  = ['健診前', '健診当日', '健診後'];
-const DEPT_LIST    = ['予約','受付','看護科','検査科','放射線科','医師','結果','請求','運営'];
+const DEPT_LIST    = ['予約','受付','看護科','検査科','放射線科','医師','結果','請求','運営','マーケティング'];
 const LANE_TO_DEPT = {
   patient:'受診者', yoyaku:'予約', iji:'受付', kango:'看護科',
   kensa:'検査科', housha:'放射線科', ishi:'医師', kekka:'結果', seikyuu:'請求'
@@ -1285,9 +1299,22 @@ function renderIssueTable() {
   const catOpts   = Object.entries(CATS).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('');
   const stOpts    = `<option value="open">未着手</option><option value="progress">進行中</option><option value="done">完了</option>`;
 
+  const total    = issues.length;
+  const cntOpen  = issues.filter(i => i.status === 'open').length;
+  const cntProg  = issues.filter(i => i.status === 'progress').length;
+  const cntDone  = issues.filter(i => i.status === 'done').length;
+
   let html = `<div class="mgmt-header">
     <h2>📊 課題管理表</h2>
     <button class="btn-p" onclick="openMgmtAdd()">＋ 課題を追加</button>
+  </div>
+  <div class="mgmt-summary">
+    <span class="sum-total">課題件数 ${total} 件</span>
+    <span class="sum-sep">｜</span>
+    <span>進捗状況：</span>
+    <span class="sum-badge sum-open">未着手 ${cntOpen} 件</span>
+    <span class="sum-badge sum-progress">着手中 ${cntProg} 件</span>
+    <span class="sum-badge sum-done">完了 ${cntDone} 件</span>
   </div>
   <div class="table-wrap"><table class="mgmt-table">
   <colgroup>
