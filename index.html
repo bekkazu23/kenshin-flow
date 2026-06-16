@@ -496,6 +496,17 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
   border: 1.5px dashed #e8c0cc; flex-shrink: 0;
 }
 #dp-add-label { font-size: 0.82rem; font-weight: 700; color: #8c3a52; margin-bottom: 8px; }
+#dp-add-dept {
+  width: 100%; margin-bottom: 8px; padding: 7px 10px;
+  border: 1.5px solid #f0dde3; border-radius: 8px;
+  font-size: 0.86rem; font-family: inherit; color: #3d2b35; background: white;
+}
+#dp-add-dept:focus { outline: none; border-color: #c97080; }
+.dp-entry-dept {
+  display: inline-block; font-size: 0.72rem; font-weight: 700;
+  background: rgba(140,58,82,0.1); color: #8c3a52;
+  border-radius: 4px; padding: 1px 8px; margin-bottom: 5px;
+}
 #dp-add-text {
   width: 100%; padding: 9px 12px; border: 1.5px solid #f0dde3; border-radius: 8px;
   font-size: 0.88rem; font-family: inherit; color: #3d2b35;
@@ -588,6 +599,9 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
     <div id="dp-log-list"></div>
     <div id="dp-add-area">
       <div id="dp-add-label">＋ 追記する</div>
+      <select id="dp-add-dept">
+        <option value="">― 部署を選択（任意）</option>
+      </select>
       <textarea id="dp-add-text" placeholder="対応方針・決定事項・経緯を記入..."></textarea>
       <div id="dp-add-footer">
         <button id="dp-save-btn" onclick="savePolicyEntry()">保存</button>
@@ -1184,6 +1198,11 @@ function openDetailPanel(iid) {
   document.getElementById('detail-backdrop').classList.add('open');
   document.getElementById('detail-panel').classList.add('open');
   document.getElementById('dp-add-text').value = '';
+  // 部署プルダウンを最新のDEPT_LISTで初期化
+  const deptSel = document.getElementById('dp-add-dept');
+  deptSel.innerHTML = '<option value="">― 部署を選択（任意）</option>'
+    + DEPT_LIST.map(v => `<option value="${escHtml(v)}">${escHtml(v)}</option>`).join('');
+  deptSel.value = '';
 }
 
 function closeDetailPanel() {
@@ -1211,6 +1230,7 @@ function renderDetailPanel() {
     listEl.innerHTML = [...log].reverse().map((entry, ri) => {
       const idx = log.length - 1 - ri;
       return `<div class="dp-entry">
+        ${entry.dept ? `<span class="dp-entry-dept">${escHtml(entry.dept)}</span>` : ''}
         <div class="dp-entry-date">${entry.date || '日付なし'}</div>
         <div class="dp-entry-text">${escHtml(entry.text)}</div>
         <button class="dp-entry-del" onclick="deletePolicyEntry(${idx})" title="削除">✕</button>
@@ -1225,11 +1245,13 @@ function savePolicyEntry() {
   const issue = issues.find(i => i.id === _dpIid);
   if (!issue) return;
   if (!Array.isArray(issue.policyLog)) issue.policyLog = [];
-  const now = new Date();
+  const now  = new Date();
   const date = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
-  issue.policyLog.push({ text, date });
+  const dept = document.getElementById('dp-add-dept').value;
+  issue.policyLog.push({ text, date, dept });
   saveIssues();
   document.getElementById('dp-add-text').value = '';
+  document.getElementById('dp-add-dept').value = '';
   renderDetailPanel();
 }
 
