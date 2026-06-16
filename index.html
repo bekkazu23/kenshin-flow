@@ -1092,7 +1092,7 @@ function getProcs(tabId, laneId, phaseId) {
 }
 
 // ── FILTERS ──────────────────────────────────────────────────
-let filters = { timing:'', gyoumu:'', cat:'', detail:'', status:'' };
+let filters = { timing:'', gyoumu:'', rel:'', cat:'', detail:'', dept:'', status:'' };
 
 function setFilter(key, value) { filters[key] = value; applyFilters(); }
 
@@ -1104,9 +1104,12 @@ function applyFilters() {
     const dept   = issue.dept   || getDeptFromCell(issue.cell);
     let show = true;
     const gyoumu = getPhaseLabel(issue.cell);
-    if (filters.timing   && timing              !== filters.timing)        show = false;
-    if (filters.gyoumu   && gyoumu             !== filters.gyoumu)        show = false;
-    if (filters.cat      && issue.cat          !== filters.cat)           show = false;
+    const rel    = getLaneLabelFromCell(issue.cell);
+    if (filters.timing && timing   !== filters.timing)                      show = false;
+    if (filters.gyoumu && gyoumu   !== filters.gyoumu)                      show = false;
+    if (filters.rel    && rel      !== filters.rel)                         show = false;
+    if (filters.cat    && issue.cat !== filters.cat)                        show = false;
+    if (filters.dept   && !(issue.depts||[]).includes(filters.dept))        show = false;
     if (filters.status   && issue.status       !== filters.status)        show = false;
     if (filters.detail   && !issue.text.includes(filters.detail))         show = false;
     row.style.display = show ? '' : 'none';
@@ -1114,7 +1117,7 @@ function applyFilters() {
 }
 
 function restoreFilters() {
-  const map = { timing:'ft-tim', gyoumu:'ft-gym', cat:'ft-cat', detail:'ft-det', status:'ft-st' };
+  const map = { timing:'ft-tim', gyoumu:'ft-gym', rel:'ft-rel', cat:'ft-cat', detail:'ft-det', dept:'ft-dep', status:'ft-st' };
   Object.entries(map).forEach(([k, id]) => {
     const el = document.getElementById(id);
     if (el) el.value = filters[k] || '';
@@ -1382,7 +1385,8 @@ function renderIssueTable() {
 
   const timOpts   = TIMING_LIST.map(v => `<option value="${v}">${v}</option>`).join('');
   const gymOpts   = GYOUMU_LIST.map(v  => `<option value="${v}">${v}</option>`).join('');
-  const depOpts   = DEPT_LIST.filter(v => v !== '受診者').map(v => `<option value="${v}">${v}</option>`).join('');
+  const relOpts   = [...new Set(TABS.flatMap(t => t.lanes.map(l => l.label)))].map(v => `<option value="${v}">${v}</option>`).join('');
+  const depOpts   = DEPT_LIST.map(v => `<option value="${v}">${v}</option>`).join('');
   const catOpts   = Object.entries(CATS).map(([k,v]) => `<option value="${k}">${v.label}</option>`).join('');
   const stOpts    = `<option value="open">未着手</option><option value="progress">進行中</option><option value="done">完了</option>`;
 
@@ -1419,6 +1423,7 @@ function renderIssueTable() {
     </div></th>
     <th class="fc fc-2"><div class="th-inner">
       <span class="th-title">関係者・部署</span>
+      <select class="filter-sel" id="ft-rel" onchange="setFilter('rel',this.value)"><option value="">すべて</option>${relOpts}</select>
     </div></th>
     <th><div class="th-inner">
       <span class="th-title">課題項目</span>
@@ -1430,6 +1435,7 @@ function renderIssueTable() {
     </div></th>
     <th><div class="th-inner">
       <span class="th-title">対応部署</span>
+      <select class="filter-sel" id="ft-dep" onchange="setFilter('dept',this.value)"><option value="">すべて</option>${depOpts}</select>
     </div></th>
     <th><div class="th-inner">
       <span class="th-title">進捗</span>
