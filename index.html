@@ -638,10 +638,10 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
 
 <div class="tab-bar">
   <button class="tab-btn active" onclick="switchTab(0)">📊 課題管理表</button>
-  <button class="tab-btn"        onclick="switchTab(1)">📋 健診前</button>
-  <button class="tab-btn"        onclick="switchTab(2)">🏥 健診当日</button>
-  <button class="tab-btn"        onclick="switchTab(3)">📄 健診後</button>
-  <button class="tab-btn"        onclick="switchTab(4)">🏗️ 健診受入れ準備</button>
+  <button class="tab-btn"        onclick="switchTab(1)">🏗️ 健診受入れ準備</button>
+  <button class="tab-btn"        onclick="switchTab(2)">📋 健診前</button>
+  <button class="tab-btn"        onclick="switchTab(3)">🏥 健診当日</button>
+  <button class="tab-btn"        onclick="switchTab(4)">📄 健診後</button>
 </div>
 <div class="undo-bar" id="undo-bar-sw">
   <button class="undo-btn" id="btn-undo" onclick="undo()" disabled title="取り消し (Ctrl+Z)">↩ 取り消し</button>
@@ -801,7 +801,7 @@ function getTimingFromCell(cell) {
 
 // ── TAB ROUTING ─────────────────────────────────────────────
 // Button index → panel element ID
-const TAB_PANEL_ID = ['tab-mgmt', 'tab-0', 'tab-1', 'tab-2', 'tab-3'];
+const TAB_PANEL_ID = ['tab-mgmt', 'tab-3', 'tab-0', 'tab-1', 'tab-2'];
 
 // ── SCHEMA ──────────────────────────────────────────────────
 const TABS = [
