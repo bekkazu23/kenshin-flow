@@ -41,6 +41,22 @@ header p  { font-size: 0.8rem; opacity: 0.82; margin-top: 3px; }
 }
 .tab-btn:hover { color: rgba(255,255,255,0.9); }
 .tab-btn.active { color: white; border-bottom-color: #f9b8c8; font-weight: 700; }
+/* ── UNDO / REDO バー ─ */
+.undo-bar {
+  display: none; align-items: center; gap: 6px;
+  padding: 5px 16px; background: #fdf6f8; border-bottom: 1px solid #f0dce4;
+}
+.tab-panel.active ~ #undo-bar-sw,
+#undo-bar-sw.show { display: flex; }
+.undo-btn {
+  display: flex; align-items: center; gap: 4px;
+  padding: 4px 13px; border: 1px solid #d8b8c4; border-radius: 5px;
+  background: white; cursor: pointer; font-size: 0.82rem; color: #6a3a52;
+  font-family: inherit; transition: background 0.12s;
+}
+.undo-btn:hover:not(:disabled) { background: #fdeef5; border-color: #c07090; }
+.undo-btn:disabled { opacity: 0.28; cursor: default; }
+.undo-sep { color: #ccc; font-size: 0.75rem; margin: 0 2px; }
 
 /* ── PAGE ───────────────────────────────── */
 .page { padding: 20px 24px; }
@@ -626,6 +642,12 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
   <button class="tab-btn"        onclick="switchTab(2)">🏥 健診当日</button>
   <button class="tab-btn"        onclick="switchTab(3)">📄 健診後</button>
 </div>
+<div class="undo-bar" id="undo-bar-sw">
+  <button class="undo-btn" id="btn-undo" onclick="undo()" disabled title="取り消し (Ctrl+Z)">↩ 取り消し</button>
+  <button class="undo-btn" id="btn-redo" onclick="redo()" disabled title="やり直し (Ctrl+Y)">↪ やり直し</button>
+  <span class="undo-sep">|</span>
+  <span id="undo-label" style="font-size:0.78rem;color:#a08090;"></span>
+</div>
 
 <div class="page">
   <div class="tab-panel active" id="tab-mgmt"></div>
@@ -935,6 +957,65 @@ function migrateIssues(arr) {
     policyLog:  Array.isArray(i.policyLog) ? i.policyLog : (i.policy ? [{text: i.policy, date: ''}] : []),
   }));
 }
+// ── UNDO / REDO ──────────────────────────────────────────────
+const MAX_HISTORY = 30;
+let _history = [];   // [{issues:[...], procs:{...}}]
+let _histIdx  = -1;
+
+function _snapshot() {
+  return {
+    issues: JSON.parse(JSON.stringify(issues)),
+    procs:  JSON.parse(JSON.stringify(customProcs))
+  };
+}
+function _pushHistory() {
+  _history = _history.slice(0, _histIdx + 1); // redo 履歴を破棄
+  _history.push(_snapshot());
+  if (_history.length > MAX_HISTORY) _history.shift();
+  _histIdx = _history.length - 1;
+  _updateUndoUI();
+}
+function _updateUndoUI() {
+  const btnU = document.getElementById('btn-undo');
+  const btnR = document.getElementById('btn-redo');
+  const lbl  = document.getElementById('undo-label');
+  if (!btnU) return;
+  btnU.disabled = (_histIdx <= 0);
+  btnR.disabled = (_histIdx >= _history.length - 1);
+  const total = _history.length;
+  lbl.textContent = total > 1
+    ? `履歴 ${_histIdx + 1} / ${total}`
+    : '';
+}
+function _restoreSnapshot(snap) {
+  issues      = migrateIssues(JSON.parse(JSON.stringify(snap.issues)));
+  customProcs = JSON.parse(JSON.stringify(snap.procs));
+  nextId      = issues.length ? Math.max(...issues.map(i => i.id)) + 1 : 1;
+  saveIssues();
+  saveCustomProcs();
+  ['tab-0','tab-1','tab-2'].forEach(id => rendered.delete(id));
+  rendered.delete('tab-mgmt');
+  const panelId = currentPanelId;
+  if (panelId === 'tab-mgmt') { renderIssueTable(); rendered.add('tab-mgmt'); }
+  else { renderTab(parseInt(panelId.replace('tab-',''))); rendered.add(panelId); }
+  _updateUndoUI();
+}
+function undo() {
+  if (_histIdx <= 0) return;
+  _histIdx--;
+  _restoreSnapshot(_history[_histIdx]);
+}
+function redo() {
+  if (_histIdx >= _history.length - 1) return;
+  _histIdx++;
+  _restoreSnapshot(_history[_histIdx]);
+}
+// キーボードショートカット
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') { e.preventDefault(); undo(); }
+  if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) { e.preventDefault(); redo(); }
+});
+
 // ── API 設定 ─────────────────────────────────────────────────
 // Apps Script デプロイ後、下記の '' 内に URL を貼り付けてください
 const API_URL = 'https://script.google.com/macros/s/AKfycbynAffDP85DTuyqqB6aTxx6ij-WEip-NwxH0th2tpjj_EIkOCEurxOuuc9DkIiO-Ex7/exec';
@@ -984,6 +1065,7 @@ function procDragEnd(e) {
 
 function moveProc(key, fromIdx, toIdx) {
   if (fromIdx === toIdx) return;
+  _pushHistory();
   const parts   = key.split('-');
   const tabId   = parseInt(parts[0]);
   const laneId  = parts[1];
@@ -1174,6 +1256,10 @@ async function initData() {
     _loadCache();
     document.getElementById('api-error').classList.add('show');
   }
+  // 初期スナップショットを履歴に積む（undo の「最初の状態」）
+  _history = [_snapshot()];
+  _histIdx  = 0;
+  _updateUndoUI();
   hideLoading();
   setInterval(pollServer, POLL_MS);
 }
@@ -1324,6 +1410,7 @@ function savePolicyEntry() {
   if (!text) return;
   const issue = issues.find(i => i.id === _dpIid);
   if (!issue) return;
+  _pushHistory();
   if (!Array.isArray(issue.policyLog)) issue.policyLog = [];
   const now  = new Date();
   const date = `${now.getFullYear()}/${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
@@ -1338,6 +1425,7 @@ function savePolicyEntry() {
 function deletePolicyEntry(idx) {
   const issue = issues.find(i => i.id === _dpIid);
   if (!issue || !issue.policyLog) return;
+  _pushHistory();
   issue.policyLog.splice(idx, 1);
   saveIssues();
   renderDetailPanel();
@@ -1597,6 +1685,8 @@ function switchTab(btnIdx) {
   });
   document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', i === btnIdx));
   document.getElementById('legend-bar').style.display = (panelId === 'tab-mgmt') ? 'none' : '';
+  const isSwimlane = panelId !== 'tab-mgmt';
+  document.getElementById('undo-bar-sw').style.display = isSwimlane ? 'flex' : 'none';
   currentPanelId = panelId;
 
   if (!rendered.has(panelId)) {
@@ -1670,6 +1760,7 @@ function closeExamProcModal() { document.getElementById('exam-proc-overlay').cla
 function saveProc() {
   const text = document.getElementById('procModalText').value.trim();
   if (!text) { document.getElementById('procModalText').focus(); return; }
+  _pushHistory();
   const tabId = parseInt(addProcKey.split('-')[0]);
   const rest  = addProcKey.slice(addProcKey.indexOf('-') + 1);
   if (!(addProcKey in customProcs)) {
@@ -1683,6 +1774,7 @@ function saveExamProc() {
   const name = document.getElementById('examProcName').value.trim();
   const step = document.getElementById('examProcStep').value.trim();
   if (!name) { document.getElementById('examProcName').focus(); return; }
+  _pushHistory();
   const text  = step ? `${name}::${step}` : `${name}::`;
   const tabId = parseInt(addProcKey.split('-')[0]);
   const rest  = addProcKey.slice(addProcKey.indexOf('-') + 1);
@@ -1696,6 +1788,7 @@ function saveExamProc() {
 function deleteProcFromBtn(btn) {
   const cellKey = btn.dataset.cell, idx = parseInt(btn.dataset.idx);
   showConfirm(`「${btn.dataset.text}」を削除しますか？`, () => {
+    _pushHistory();
     const tabId = parseInt(cellKey.split('-')[0]);
     const rest  = cellKey.slice(cellKey.indexOf('-') + 1);
     if (!(cellKey in customProcs)) {
@@ -1746,6 +1839,7 @@ function closeModal() { document.getElementById('overlay').classList.remove('ope
 function saveIssue() {
   const text = document.getElementById('modalText').value.trim();
   if (!text) { document.getElementById('modalText').focus(); return; }
+  _pushHistory();
   const cat  = document.getElementById('modalCat').value;
   if (editingId === null) {
     issues.push({
@@ -1761,6 +1855,7 @@ function saveIssue() {
 }
 function deleteIssueFromModal() {
   showConfirm('この課題を削除しますか？', () => {
+    _pushHistory();
     issues = issues.filter(i => i.id !== editingId);
     saveIssues(); closeModal(); rerender();
   });
