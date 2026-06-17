@@ -641,6 +641,7 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
   <button class="tab-btn"        onclick="switchTab(1)">📋 健診前</button>
   <button class="tab-btn"        onclick="switchTab(2)">🏥 健診当日</button>
   <button class="tab-btn"        onclick="switchTab(3)">📄 健診後</button>
+  <button class="tab-btn"        onclick="switchTab(4)">🏗️ 健診受入れ準備</button>
 </div>
 <div class="undo-bar" id="undo-bar-sw">
   <button class="undo-btn" id="btn-undo" onclick="undo()" disabled title="取り消し (Ctrl+Z)">↩ 取り消し</button>
@@ -654,6 +655,7 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
   <div class="tab-panel"        id="tab-0"></div>
   <div class="tab-panel"        id="tab-1"></div>
   <div class="tab-panel"        id="tab-2"></div>
+  <div class="tab-panel"        id="tab-3"></div>
 
   <div class="legend" id="legend-bar" style="display:none">
     <span class="legend-lbl">課題カテゴリ：</span>
@@ -799,7 +801,7 @@ function getTimingFromCell(cell) {
 
 // ── TAB ROUTING ─────────────────────────────────────────────
 // Button index → panel element ID
-const TAB_PANEL_ID = ['tab-mgmt', 'tab-0', 'tab-1', 'tab-2'];
+const TAB_PANEL_ID = ['tab-mgmt', 'tab-0', 'tab-1', 'tab-2', 'tab-3'];
 
 // ── SCHEMA ──────────────────────────────────────────────────
 const TABS = [
@@ -810,7 +812,7 @@ const TABS = [
       { id:'yoyaku',  icon:'📞', label:'予約'   },
     ],
     phases: [
-      { id:'inquiry',  label:'予約枠設定・予約問い合わせ、申込', cls:0, span:1 },
+      { id:'inquiry',  label:'予約問い合わせ・申込', cls:0, span:1 },
       { id:'confirm',  label:'予約確認・案内送付',   cls:1, span:1 },
       { id:'precheck', label:'事前問診票記入・提出', cls:2, span:1 },
       { id:'reminder', label:'前日リマインド・準備', cls:3, span:1 },
@@ -871,29 +873,40 @@ const TABS = [
       { id:'seikyuu', icon:'💴',  label:'請求'   },
     ],
     phases: [
-      { id:'result',   label:'結果報告書、請求運用構築',   cls:0, span:1 },
-      { id:'report',   label:'報告書作成',       cls:1, span:1 },
-      { id:'billing',  label:'請求書作成',       cls:2, span:1 },
-      { id:'delivery', label:'報告書・請求書送付', cls:3, span:1 },
+      { id:'report',   label:'報告書作成',       cls:0, span:1 },
+      { id:'billing',  label:'請求書作成',       cls:1, span:1 },
+      { id:'delivery', label:'報告書・請求書送付', cls:2, span:1 },
     ],
     processes: {
-      'patient-result':   [],
       'patient-report':   [],
       'patient-billing':  [],
       'patient-delivery': ['報告書・請求書を受領','結果を確認','必要に応じて医療機関を受診'],
-      'ishi-result':   ['全検査結果の確認','総合所見・判定の記載'],
       'ishi-report':   ['報告書の作成・承認','要精密検査の判定'],
       'ishi-billing':  [],
       'ishi-delivery': [],
-      'kekka-result':   ['各検査データの集計・照合','異常値のフラグ確認'],
       'kekka-report':   ['報告書用データの提供','画像・グラフの整理'],
       'kekka-billing':  [],
       'kekka-delivery': [],
-      'seikyuu-result':   [],
       'seikyuu-report':   [],
       'seikyuu-billing':  ['受診内容に基づき請求書作成','保険・自費区分の確認','明細書の作成'],
       'seikyuu-delivery': ['報告書・請求書の封入','郵送 or 電子送付','送付記録の管理'],
     }
+  },
+  {
+    id: 3,
+    lanes: [
+      { id:'yoyaku',   icon:'📞', label:'予約' },
+      { id:'uketsuke', icon:'🪪',  label:'受付' },
+      { id:'kekka',    icon:'📊', label:'結果' },
+      { id:'seikyuu',  icon:'💴', label:'請求' },
+      { id:'ishi',     icon:'👨‍⚕️', label:'医師' },
+    ],
+    phases: [
+      { id:'yoyaku_waku',    label:'予約枠構築',    cls:0, span:1 },
+      { id:'kekka_houkoku',  label:'結果報告書構築', cls:1, span:1 },
+      { id:'seikyuu_unyo',   label:'請求書運用構築', cls:2, span:1 },
+    ],
+    processes: {}
   }
 ];
 
