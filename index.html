@@ -581,8 +581,8 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
 
 <!-- API接続エラーバナー -->
 <div id="api-error">
-  ⚠️ サーバーへの接続に失敗しました。ローカルデータを使用しています。<br>
-  <small>API_URL が未設定か、ネットワークを確認してください。</small>
+  ⚠️ Firebaseへの接続に失敗しました。ローカルデータを使用しています。<br>
+  <small>ネットワーク接続、またはFirebase設定をご確認ください。</small>
 </div>
 
 <header>
@@ -590,8 +590,9 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
     <h1>🌸 外国人健診受入れ準備：各部門課題管理表</h1>
   </div>
   <div class="header-btns">
-    <span id="poll-dot" title="自動更新中"></span>
+    <span id="poll-dot" title="リアルタイム同期中"></span>
     <span id="save-status"></span>
+    <button class="hbtn" id="refreshBtn" onclick="manualRefresh()" title="最新状態に更新">🔄 更新</button>
     <button class="hbtn" id="toggleProcMode" onclick="toggleProcMode()">📝 業務を編集する</button>
     <button class="hbtn" id="toggleMode"     onclick="toggleMode()">✏️ 課題を編集する</button>
   </div>
@@ -780,6 +781,10 @@ body.issue-mode .add-issue-btn:hover { border-color:#c97080;color:#8c3a52;backgr
     </div>
   </div>
 </div>
+
+<!-- Firebase SDK（リアルタイム同期） -->
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 
 <script>
 // ============================================================
@@ -1020,9 +1025,19 @@ document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.shiftKey && e.key === 'z'))) { e.preventDefault(); redo(); }
 });
 
-// ── API 設定 ─────────────────────────────────────────────────
-// Apps Script デプロイ後、下記の '' 内に URL を貼り付けてください
-const API_URL = 'https://script.google.com/macros/s/AKfycbynAffDP85DTuyqqB6aTxx6ij-WEip-NwxH0th2tpjj_EIkOCEurxOuuc9DkIiO-Ex7/exec';
+// ── Firebase 設定 ────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyCfrE4bhwebF0nr6BcgjahftAN9j_IOOPg",
+  authDomain: "kenshin-flow.firebaseapp.com",
+  projectId: "kenshin-flow",
+  storageBucket: "kenshin-flow.firebasestorage.app",
+  messagingSenderId: "1067363536886",
+  appId: "1:1067363536886:web:057a0ca54aecc08d3781d7"
+};
+let db = null;                 // Firestore インスタンス
+let _fbReady = false;          // 初回スナップショット受信済みフラグ
+let _fsIssuesShadow = {};      // 最後にFirestoreへ書いた課題（id→JSON）
+let _fsProcsShadow  = {};      // 最後にFirestoreへ書いた業務カード（key→JSON）
 
 let issues      = [];
 let nextId      = 1;
@@ -1123,149 +1138,135 @@ function showSaveStatus(state) {
   }
 }
 
-// ── API 保存 ─────────────────────────────────────────────────
-async function _apiPost(type, data) {
-  if (!API_URL) return;
+// ── Firestore 保存（差分のみ書き込み） ───────────────────────
+// 課題：1件＝1ドキュメント。変更/追加されたものだけ書き込み、削除分はdelete
+function saveIssues() {
+  _cacheIssues();
+  if (!db) return;
   showSaveStatus('saving');
   try {
-    await fetch(API_URL, {
-      method:  'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body:    JSON.stringify({ type, data })
+    const col = db.collection('issues');
+    const currentIds = new Set(issues.map(i => String(i.id)));
+    issues.forEach(i => {
+      const js = JSON.stringify(i);
+      if (_fsIssuesShadow[i.id] !== js) {
+        col.doc(String(i.id)).set(i);
+        _fsIssuesShadow[i.id] = js;
+      }
+    });
+    Object.keys(_fsIssuesShadow).forEach(id => {
+      if (!currentIds.has(id)) {
+        col.doc(id).delete();
+        delete _fsIssuesShadow[id];
+      }
     });
     showSaveStatus('saved');
-    _syncedSnapshot = JSON.stringify(issues); // 保存成功時にスナップショット更新
-  } catch (e) {
-    showSaveStatus('error');
-  }
+  } catch (e) { showSaveStatus('error'); }
 }
 
-function saveIssues()      { _cacheIssues(); _apiPost('issues', issues); }
-function saveCustomProcs() { _cacheProcs();  _apiPost('procs',  customProcs); }
-
-// ── 自動ポーリング（30秒ごと） ────────────────────────────────
-const POLL_MS = 30000;
-let _syncedSnapshot = ''; // 最後にサーバーと同期した時点の issues JSON
-let _pendingServerData = null;
-
-function _isAnyModalOpen() {
-  return [...document.querySelectorAll('.overlay, #conflict-overlay')]
-    .some(el => el.classList.contains('open'));
-}
-
-async function pollServer() {
-  if (!API_URL || _isAnyModalOpen()) return;
+// 業務カード：セル1つ＝1ドキュメント（doc.id=セルキー, {items:[...]}）
+function saveCustomProcs() {
+  _cacheProcs();
+  if (!db) return;
+  showSaveStatus('saving');
   try {
-    const res  = await fetch(API_URL + '?_=' + Date.now());
-    const data = await res.json();
-    const serverJson = JSON.stringify(data.issues || []);
-
-    if (serverJson === _syncedSnapshot) return; // 変化なし
-
-    const serverIssues = migrateIssues(data.issues || []);
-    const conflicts    = _detectConflicts(serverIssues);
-
-    // ポーリングドット点灯
-    const dot = document.getElementById('poll-dot');
-    if (dot) { dot.classList.add('active'); setTimeout(() => dot.classList.remove('active'), 1200); }
-
-    if (conflicts.length > 0) {
-      _pendingServerData = { issues: serverIssues, procs: data.customProcs || {} };
-      _showConflictDialog(conflicts);
-    } else {
-      _applyServerData(serverIssues, data.customProcs || {}, serverJson);
-    }
-  } catch(e) { /* ネットワークエラーは無視 */ }
+    const col = db.collection('procs');
+    Object.keys(customProcs).forEach(key => {
+      const js = JSON.stringify(customProcs[key]);
+      if (_fsProcsShadow[key] !== js) {
+        col.doc(key).set({ items: customProcs[key] });
+        _fsProcsShadow[key] = js;
+      }
+    });
+    Object.keys(_fsProcsShadow).forEach(key => {
+      if (!(key in customProcs)) {
+        col.doc(key).delete();
+        delete _fsProcsShadow[key];
+      }
+    });
+    showSaveStatus('saved');
+  } catch (e) { showSaveStatus('error'); }
 }
 
-function _applyServerData(serverIssues, serverProcs, serverJson) {
-  issues      = serverIssues;
-  customProcs = serverProcs;
-  nextId      = issues.length ? Math.max(...issues.map(i => i.id)) + 1 : 1;
-  _syncedSnapshot = serverJson || JSON.stringify(serverIssues);
-  _cacheIssues(); _cacheProcs();
+// ── リアルタイム同期（Firestore onSnapshot） ──────────────────
+function _flashPollDot() {
+  const dot = document.getElementById('poll-dot');
+  if (dot) { dot.classList.add('active'); setTimeout(() => dot.classList.remove('active'), 1000); }
+}
+// 競合ダイアログは廃止（リアルタイム反映のため）。残存参照対策のスタブ。
+function resolveConflict() {}
+
+// 一意なID生成（複数端末同時追加でも衝突しない）
+function genId() { return Date.now() * 1000 + Math.floor(Math.random() * 1000); }
+
+// 手動リフレッシュ（リアルタイムなので通常は不要だが明示更新用）
+function manualRefresh() {
+  _flashPollDot();
   rerender();
+  showSaveStatus('saved');
 }
 
-// ── 競合検知 ─────────────────────────────────────────────────
-function _detectConflicts(serverIssues) {
-  if (!_syncedSnapshot) return []; // 初回同期前は競合なし
-  const syncedMap = new Map(JSON.parse(_syncedSnapshot).map(i => [i.id, i]));
-  const localMap  = new Map(issues.map(i => [i.id, i]));
-  const serverMap = new Map(serverIssues.map(i => [i.id, i]));
-  const conflicts = [];
+// 起動時：ローカルキャッシュで即描画 → Firestore へ接続しリアルタイム購読
+function initData() {
+  _loadCache();  // 接続前のフォールバック描画
+  _history = [_snapshot()]; _histIdx = 0; _updateUndoUI();
 
-  for (const [id, srv] of serverMap) {
-    const synced = syncedMap.get(id);
-    const local  = localMap.get(id);
-    if (!synced || !local) continue;
-    const srvChanged   = JSON.stringify(srv)    !== JSON.stringify(synced);
-    const localChanged = JSON.stringify(local)  !== JSON.stringify(synced);
-    if (srvChanged && localChanged) conflicts.push({ id, local, server: srv });
-  }
-  return conflicts;
-}
+  return new Promise((resolve) => {
+    const hideLoading = () => document.getElementById('loading-overlay').classList.add('hidden');
 
-function _showConflictDialog(conflicts) {
-  const list = document.getElementById('conflict-list');
-  list.innerHTML = conflicts.map(c => `
-    <div class="conflict-item">
-      <strong>課題 #${c.id}</strong>：${escHtml(c.local.text)}<br>
-      <span style="color:#5a7a5a">　サーバー：${escHtml(c.server.text)}</span><br>
-      <span style="color:#7a5a5a">　あなた：${escHtml(c.local.text)}</span>
-    </div>`).join('');
-  document.getElementById('conflict-overlay').classList.add('open');
-}
+    try {
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
+    } catch (e) {
+      document.getElementById('api-error').classList.add('show');
+      hideLoading();
+      resolve();
+      return;
+    }
 
-function resolveConflict(choice) {
-  document.getElementById('conflict-overlay').classList.remove('open');
-  if (!_pendingServerData) return;
-  if (choice === 'server') {
-    _applyServerData(_pendingServerData.issues, _pendingServerData.procs, JSON.stringify(_pendingServerData.issues));
-  } else {
-    // ローカル優先 — スナップショットだけ更新してサーバーに上書き保存
-    _syncedSnapshot = JSON.stringify(issues);
-    saveIssues();
-  }
-  _pendingServerData = null;
-}
+    let issuesLoaded = false, procsLoaded = false;
+    const tryFinish = () => {
+      if (issuesLoaded && procsLoaded && !_fbReady) {
+        _fbReady = true;
+        nextId = issues.length ? Math.max(...issues.map(i => i.id)) + 1 : 1;
+        _history = [_snapshot()]; _histIdx = 0; _updateUndoUI();
+        hideLoading();
+        resolve();
+      }
+    };
 
-// 起動時データ読み込み
-async function initData() {
-  const hideLoading = () => document.getElementById('loading-overlay').classList.add('hidden');
+    // 課題コレクションを購読
+    db.collection('issues').onSnapshot(snap => {
+      issues = migrateIssues(snap.docs.map(d => d.data()));
+      _fsIssuesShadow = {};
+      issues.forEach(i => _fsIssuesShadow[i.id] = JSON.stringify(i));
+      nextId = issues.length ? Math.max(...issues.map(i => i.id)) + 1 : 1;
+      _cacheIssues();
+      _flashPollDot();
+      if (_fbReady) rerender();
+      issuesLoaded = true; tryFinish();
+    }, err => {
+      document.getElementById('api-error').classList.add('show');
+      issuesLoaded = true; tryFinish();
+    });
 
-  if (!API_URL) {
-    _loadCache();
-    document.getElementById('api-error').classList.add('show');
-    hideLoading();
-    return;
-  }
+    // 業務カードコレクションを購読
+    db.collection('procs').onSnapshot(snap => {
+      customProcs = {};
+      snap.docs.forEach(d => { customProcs[d.id] = (d.data().items) || []; });
+      _fsProcsShadow = {};
+      Object.keys(customProcs).forEach(k => _fsProcsShadow[k] = JSON.stringify(customProcs[k]));
+      _cacheProcs();
+      _flashPollDot();
+      if (_fbReady) rerender();
+      procsLoaded = true; tryFinish();
+    }, err => {
+      procsLoaded = true; tryFinish();
+    });
 
-  // 8秒でタイムアウト（APIが応答しない場合のフォールバック）
-  const controller = new AbortController();
-  const timeoutId  = setTimeout(() => controller.abort(), 8000);
-
-  try {
-    const res  = await fetch(API_URL, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    const data = await res.json();
-    issues      = migrateIssues(data.issues      || []);
-    customProcs = data.customProcs || {};
-    if (issues.length === 0) issues = JSON.parse(JSON.stringify(SAMPLE_ISSUES));
-    nextId = issues.length ? Math.max(...issues.map(i => i.id)) + 1 : 1;
-    _syncedSnapshot = JSON.stringify(issues);
-    _cacheIssues(); _cacheProcs();
-  } catch (e) {
-    clearTimeout(timeoutId);
-    _loadCache();
-    document.getElementById('api-error').classList.add('show');
-  }
-  // 初期スナップショットを履歴に積む（undo の「最初の状態」）
-  _history = [_snapshot()];
-  _histIdx  = 0;
-  _updateUndoUI();
-  hideLoading();
-  setInterval(pollServer, POLL_MS);
+    // 5秒経っても初回が来なければローディング解除（安全網）
+    setTimeout(() => { if (!_fbReady) { _fbReady = true; hideLoading(); resolve(); } }, 5000);
+  });
 }
 
 function getProcs(tabId, laneId, phaseId) {
@@ -1881,7 +1882,7 @@ function saveIssue() {
   const cat  = document.getElementById('modalCat').value;
   if (editingId === null) {
     issues.push({
-      id:nextId++, cell:editingCell, procIdx:editingProcIdx,
+      id:genId(), cell:editingCell, procIdx:editingProcIdx,
       cat, text, note:'', policy:'', assignee:'', status:'open', memo:'',
       timing:getTimingFromCell(editingCell), dept:getDeptFromCell(editingCell),
     });
@@ -1968,7 +1969,7 @@ function saveMgmtIssue() {
   const policy   = document.getElementById('mgmtPolicy').value.trim();
   const assignee = document.getElementById('mgmtAssignee').value.trim();
   if (mgmtEditingId === null) {
-    issues.push({ id:nextId++, cell:null, procIdx:null, cat, text, note:'', policy, assignee, timing, dept, status, memo });
+    issues.push({ id:genId(), cell:null, procIdx:null, cat, text, note:'', policy, assignee, timing, dept, status, memo });
   } else {
     const issue = issues.find(i => i.id === mgmtEditingId);
     if (issue) Object.assign(issue, { cat, text, policy, assignee, timing, dept, status, memo });
